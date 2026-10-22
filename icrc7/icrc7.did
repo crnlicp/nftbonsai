@@ -1,0 +1,382 @@
+type Value = 
+ variant {
+   Array: vec Value;
+   Blob: blob;
+   Int: int;
+   Map: vec record {
+              text;
+              Value;
+            };
+   Nat: nat;
+   Text: text;
+ };
+type TransferResult = 
+ variant {
+   Err: TransferError;
+   Ok: nat;
+ };
+type TransferFromResult = 
+ variant {
+   Err: TransferFromError;
+   Ok: nat;
+ };
+type TransferFromError = 
+ variant {
+   CreatedInFuture: record {ledger_time: nat64;};
+   Duplicate: record {duplicate_of: nat;};
+   GenericBatchError: record {
+                        error_code: nat;
+                        message: text;
+                      };
+   GenericError: record {
+                   error_code: nat;
+                   message: text;
+                 };
+   InvalidRecipient;
+   NonExistingTokenId;
+   TooOld;
+   Unauthorized;
+ };
+type TransferFromArg = 
+ record {
+   created_at_time: opt nat64;
+   from: Account;
+   memo: opt blob;
+   spender_subaccount: opt blob;
+   to: Account;
+   token_id: nat;
+ };
+type TransferError = 
+ variant {
+   GenericError: record {
+                   error_code: nat;
+                   message: text;
+                 };
+   InvalidRecipient;
+   NonExistingTokenId;
+   Unauthorized;
+ };
+type TransferArg = 
+ record {
+   created_at_time: opt nat64;
+   from_subaccount: opt blob;
+   memo: opt blob;
+   to: Account;
+   token_id: nat;
+ };
+type TokenApproval = 
+ record {
+   approval_info: ApprovalInfo;
+   token_id: nat;
+ };
+type Segment = 
+ record {
+   end: Point;
+   start: Point;
+   width: int;
+ };
+type RevokeTokenApprovalResult = 
+ variant {
+   Err: RevokeTokenApprovalError;
+   Ok: nat;
+ };
+type RevokeTokenApprovalError = 
+ variant {
+   ApprovalDoesNotExist;
+   CreatedInFuture: record {ledger_time: nat64;};
+   GenericBatchError: record {
+                        error_code: nat;
+                        message: text;
+                      };
+   GenericError: record {
+                   error_code: nat;
+                   message: text;
+                 };
+   NonExistingTokenId;
+   TooOld;
+   Unauthorized;
+ };
+type RevokeTokenApprovalArg = 
+ record {
+   created_at_time: opt nat64;
+   from_subaccount: opt blob;
+   memo: opt blob;
+   spender: opt Account;
+   token_id: nat;
+ };
+type RevokeCollectionApprovalResult = 
+ variant {
+   Err: RevokeCollectionApprovalError;
+   Ok: nat;
+ };
+type RevokeCollectionApprovalError = 
+ variant {
+   ApprovalDoesNotExist;
+   CreatedInFuture: record {ledger_time: nat64;};
+   GenericBatchError: record {
+                        error_code: nat;
+                        message: text;
+                      };
+   GenericError: record {
+                   error_code: nat;
+                   message: text;
+                 };
+   TooOld;
+   Unauthorized;
+ };
+type RevokeCollectionApprovalArg = 
+ record {
+   created_at_time: opt nat64;
+   from_subaccount: opt blob;
+   memo: opt blob;
+   spender: opt Account;
+ };
+type Point = 
+ record {
+   x: int;
+   y: int;
+ };
+type PaymentError = 
+ variant {
+   forbidden;
+   rejected: text;
+   unauthorized;
+ };
+type Pad = 
+ record {
+   center: Point;
+   rx: int;
+   ry: int;
+ };
+type NftPublic = 
+ record {
+   createdAt: int;
+   id: nat;
+   owner: principal;
+   paymentId: text;
+   traits: BonsaiTraits;
+ };
+type IsApprovedArg = 
+ record {
+   from_subaccount: opt blob;
+   spender: Account;
+   token_id: nat;
+ };
+type HttpResponse = 
+ record {
+   body: blob;
+   headers: vec HeaderField;
+   status_code: nat16;
+ };
+type HttpRequest = 
+ record {
+   body: blob;
+   headers: vec HeaderField;
+   method: text;
+   url: text;
+ };
+type HeaderField = 
+ record {
+   text;
+   text;
+ };
+type GetBlocksResult = 
+ record {
+   archived_blocks:
+    vec
+     record {
+       args: GetBlocksArgs;
+       callback: func (GetBlocksArgs) -> (GetBlocksResult) query;
+     };
+   blocks: vec record {
+                 block: Value;
+                 id: nat;
+               };
+   log_length: nat;
+ };
+type GetBlocksArgs = 
+ vec record {
+       length: nat;
+       start: nat;
+     };
+type GetArchivesArgs = record {from: opt principal;};
+type DataCertificate = 
+ record {
+   certificate: blob;
+   hash_tree: blob;
+ };
+type CollectionApproval = 
+ record {
+   created_at_time: opt nat64;
+   expires_at: opt nat64;
+   from_subaccount: opt blob;
+   memo: opt blob;
+   spender: Account;
+ };
+type BonsaiTraits = 
+ record {
+   branchCount: nat8;
+   ground: nat8;
+   leafColor: nat8;
+   leafDensity: nat8;
+   moonPhase: nat8;
+   potColor: nat8;
+   potStyle: nat8;
+   season: nat8;
+   sky: nat8;
+   specialElem: nat8;
+   trunkColor: nat8;
+   trunkStyle: nat8;
+   trunkThick: nat8;
+ };
+type Artwork = 
+ record {
+   attempt: nat;
+   pads: vec Pad;
+   pixelHash: blob;
+   pixels: blob;
+   seed: blob;
+   silhouette: blob;
+   silhouetteHash: blob;
+   skeleton: vec Segment;
+   svg: text;
+   traits: BonsaiTraits;
+   version: nat;
+ };
+type ArchiveInfo = 
+ record {
+   canister_id: principal;
+   end: nat;
+   start: nat;
+ };
+type ApproveTokenResult = 
+ variant {
+   Err: ApproveTokenError;
+   Ok: nat;
+ };
+type ApproveTokenError = 
+ variant {
+   CreatedInFuture: record {ledger_time: nat64;};
+   GenericBatchError: record {
+                        error_code: nat;
+                        message: text;
+                      };
+   GenericError: record {
+                   error_code: nat;
+                   message: text;
+                 };
+   InvalidSpender;
+   NonExistingTokenId;
+   TooOld;
+   Unauthorized;
+ };
+type ApproveTokenArg = 
+ record {
+   approval_info: ApprovalInfo;
+   token_id: nat;
+ };
+type ApproveCollectionResult = 
+ variant {
+   Err: ApproveCollectionError;
+   Ok: nat;
+ };
+type ApproveCollectionError = 
+ variant {
+   CreatedInFuture: record {ledger_time: nat64;};
+   GenericBatchError: record {
+                        error_code: nat;
+                        message: text;
+                      };
+   GenericError: record {
+                   error_code: nat;
+                   message: text;
+                 };
+   InvalidSpender;
+   TooOld;
+   Unauthorized;
+ };
+type ApproveCollectionArg = record {approval_info: ApprovalInfo;};
+type ApprovalInfo = 
+ record {
+   created_at_time: opt nat64;
+   expires_at: opt nat64;
+   from_subaccount: opt blob;
+   memo: opt blob;
+   spender: Account;
+ };
+type Account = 
+ record {
+   owner: principal;
+   subaccount: opt blob;
+ };
+service : {
+  getArtwork: (id: nat) -> (opt Artwork) query;
+  getImageBaseUrl: () -> (text) query;
+  getMintByKey: (key: text) -> (opt nat) query;
+  getNft: (id: nat) -> (opt NftPublic) query;
+  http_request: (req: HttpRequest) -> (HttpResponse) query;
+  icrc10_supported_standards: () ->
+   (vec record {
+          name: text;
+          url: text;
+        }) query;
+  icrc37_approve_collection: (args: vec ApproveCollectionArg) ->
+   (vec opt ApproveCollectionResult);
+  icrc37_approve_tokens: (args: vec ApproveTokenArg) ->
+   (vec opt ApproveTokenResult);
+  icrc37_get_collection_approvals: (owner: Account, _prev:
+   opt CollectionApproval, take: opt nat) -> (vec CollectionApproval) query;
+  icrc37_get_token_approvals: (token_id: nat, _prev: opt TokenApproval, take:
+   opt nat) -> (vec TokenApproval) query;
+  icrc37_is_approved: (args: vec IsApprovedArg) -> (vec bool) query;
+  icrc37_max_approvals_per_token_or_collection: () -> (opt nat) query;
+  icrc37_max_revoke_approvals: () -> (opt nat) query;
+  icrc37_revoke_collection_approvals: (args:
+   vec RevokeCollectionApprovalArg) ->
+   (vec opt RevokeCollectionApprovalResult);
+  icrc37_revoke_token_approvals: (args: vec RevokeTokenApprovalArg) ->
+   (vec opt RevokeTokenApprovalResult);
+  icrc37_transfer_from: (args: vec TransferFromArg) ->
+   (vec opt TransferFromResult);
+  icrc3_get_archives: (_args: GetArchivesArgs) -> (vec ArchiveInfo) query;
+  icrc3_get_blocks: (args: GetBlocksArgs) -> (GetBlocksResult) query;
+  icrc3_get_tip_certificate: () -> (opt DataCertificate) query;
+  icrc3_supported_block_types: () ->
+   (vec record {
+          block_type: text;
+          url: text;
+        }) query;
+  icrc7_balance_of: (accounts: vec Account) -> (vec nat) query;
+  icrc7_collection_metadata: () -> (vec record {
+                                          text;
+                                          Value;
+                                        }) query;
+  icrc7_default_take_value: () -> (opt nat) query;
+  icrc7_description: () -> (opt text) query;
+  icrc7_logo: () -> (opt text) query;
+  icrc7_max_memo_size: () -> (opt nat) query;
+  icrc7_max_query_batch_size: () -> (opt nat) query;
+  icrc7_max_take_value: () -> (opt nat) query;
+  icrc7_max_update_batch_size: () -> (opt nat) query;
+  icrc7_name: () -> (text) query;
+  icrc7_owner_of: (ids: vec nat) -> (vec opt Account) query;
+  icrc7_supply_cap: () -> (opt nat) query;
+  icrc7_symbol: () -> (text) query;
+  icrc7_token_metadata: (ids: vec nat) ->
+   (vec opt vec record {
+                  text;
+                  Value;
+                }) query;
+  icrc7_tokens: (prev: opt nat, take: opt nat) -> (vec nat) query;
+  icrc7_tokens_of: (account: Account, prev: opt nat, take: opt nat) ->
+   (vec nat) query;
+  icrc7_total_supply: () -> (nat) query;
+  icrc7_transfer: (args: vec TransferArg) -> (vec opt TransferResult);
+  listPage: (before: opt nat, limit: nat) -> (vec NftPublic) query;
+  listRecent: (limit: nat) -> (vec NftPublic) query;
+  mintV2: (to: principal, seed: blob, tier: nat, key: text) ->
+   (variant {
+      err: PaymentError;
+      ok: nat;
+    });
+}

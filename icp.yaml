@@ -1,0 +1,48 @@
+networks:
+  - name: local
+    mode: managed
+    ii: true
+    gateway:
+      port: 8765
+
+environments:
+  - name: local
+    network: local
+    canisters: [icrc7, backend, frontend]
+    settings:
+      backend:
+        environment_variables:
+          MOCK_PAYMENTS: "1"
+      frontend:
+        environment_variables:
+          PUBLIC_II_AUTHORIZE_URL: "http://uqzsh-gqaaa-aaaaq-qaada-cai.localhost:8765/authorize"
+  - name: ic
+    network: ic
+    canisters: [icrc7, backend, frontend]
+    settings:
+      backend:
+        environment_variables:
+          MOCK_PAYMENTS: "0"
+        freezing_threshold: 2592000  # 30 days (small budget; raise once topped up)
+      icrc7:
+        freezing_threshold: 2592000
+
+canisters:
+  - name: icrc7
+    recipe:
+      type: "@dfinity/motoko@v5.0.0"
+
+  - name: backend
+    recipe:
+      type: "@dfinity/motoko@v5.0.0"
+
+  - name: frontend
+    recipe:
+      type: "@dfinity/static-site@v0.4.1"
+      configuration:
+        dir: frontend/dist
+        build:
+          - npm --prefix frontend ci --no-audit --no-fund
+          - npm --prefix frontend run build
+        presync:
+          - node scripts/auth-callbacks.mjs

@@ -1,0 +1,30 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(),microphone=(),camera=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.icp.net http://*.localhost:*; connect-src 'self' https://icp-api.io https://*.icp0.io https://*.icp.net https://id.ai http://localhost:* http://*.localhost:*; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/.well-known/ii-app-metadata
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+
+/.well-known/ii-auth-callbacks
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+
+/.well-known/ii-alternative-origins
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+
+/site.webmanifest
+  Content-Type: application/manifest+json
+
+/.well-known/ic-domains
+  Content-Type: text/plain
+
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate

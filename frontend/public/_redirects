@@ -1,0 +1,4 @@
+/assets/* /404.html 404
+/previews/* /404.html 404
+/.well-known/* /404.html 404
+/* /index.html 200

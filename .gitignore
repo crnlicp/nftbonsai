@@ -1,0 +1,48 @@
+# icp-cli
+.icp/cache/
+.icp/data/mappings/local.ids.json
+.icp-home/
+
+# Motoko / mops
+.mops/
+.migrations-*/
+
+# Node / Vite
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/src/bindings/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# Test output
+test-results/
+playwright-report/
+coverage/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+.bonsai-pw
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

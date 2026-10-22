@@ -1,0 +1,12 @@
+service : {
+  batch: (start: nat, count: nat) ->
+   (vec
+     record {
+       pixels: blob;
+       shape: blob;
+       style: nat;
+       svg: text;
+       tier: nat;
+       valid: bool;
+     }) query;
+}

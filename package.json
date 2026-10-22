@@ -1,0 +1,22 @@
+{
+  "name": "nftbonsai",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "mops check",
+    "build": "mops build",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "mops test Paw && mops test Art --mode wasi",
+    "samples:landing": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/landing-samples.mjs",
+    "test:auth:local": "node --test tests/browser/local-auth.mjs",
+    "test:browser:local": "node --test --test-concurrency=1 tests/browser/landing.mjs tests/browser/mint.mjs tests/browser/wallet.mjs",
+    "test:integration": "mops build && npm --prefix frontend run bindings && node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@dfinity/pic": "^0.22.0",
+    "@icp-sdk/core": "^6.1.1",
+    "playwright": "1.57.0",
+    "@icp-sdk/icp-cli": "1.7.0",
+    "ic-mops": "3.5.1"
+  }
+}

@@ -1,0 +1,115 @@
+type Result_2 = 
+ variant {
+   err: PaymentError;
+   ok: Purchase;
+ };
+type Result_1 = 
+ variant {
+   err: PaymentError;
+   ok;
+ };
+type Result = 
+ variant {
+   err: PaymentError;
+   ok: nat;
+ };
+type Purchase = 
+ record {
+   amountE8s: opt nat;
+   amountEur: nat;
+   artTier: opt nat;
+   attempts: nat;
+   caller: principal;
+   checkoutUrl: opt text;
+   createdAt: int;
+   fulfillment: Fulfillment;
+   id: text;
+   invoiceId: opt text;
+   lastError: opt text;
+   ledgerBlock: opt nat;
+   lucky: bool;
+   method: Method;
+   nextCheck: int;
+   nftId: opt nat;
+   payTime: opt nat64;
+   paymentStatus: text;
+   sandbox: bool;
+   seed: opt blob;
+   sequence: nat;
+   tier: nat;
+   updatedAt: int;
+ };
+type PaymentError = 
+ variant {
+   forbidden;
+   rejected: text;
+   unauthorized;
+ };
+type Method = 
+ variant {
+   icp;
+   paw;
+ };
+type HttpRequestResult = 
+ record {
+   body: blob;
+   headers: vec HttpHeader;
+   status: nat;
+ };
+type HttpHeader = 
+ record {
+   name: text;
+   value: text;
+ };
+type Fulfillment = 
+ variant {
+   awaiting;
+   closed;
+   creating;
+   minted;
+   minting;
+   paid;
+   review;
+ };
+type Account = 
+ record {
+   owner: principal;
+   subaccount: opt blob;
+ };
+service : {
+  attachPawInvoice: (id: text, invoiceId: text) -> (Result_1);
+  buyWithIcp: (eur: nat, maxE8s: nat) -> (Result_2);
+  closeUnknownPurchase: (id: text, reason: text) -> (Result_1);
+  configurePaw: (key: text, usdcAsset: text, redirect: text, sandbox:
+   bool) -> (Result_1);
+  createPurchase: (eur: nat) -> (Result_2);
+  getMyPurchases: () -> (vec Purchase) query;
+  paymentInfo: () ->
+   (record {
+      asset: text;
+      configured: bool;
+      mock: bool;
+      pending: nat;
+      sandbox: bool;
+    }) query;
+  pricing: () ->
+   (record {
+      e8sPerEur: nat;
+      e8sStep: nat;
+      maxEur: nat;
+      minEur: nat;
+      tiers: vec record {
+                   eur: nat;
+                   name: text;
+                 };
+    }) query;
+  reconciliationQueue: () -> (vec Purchase) query;
+  refreshPurchase: (id: text) -> (Result_2);
+  setIcpRate: (e8sPerEur: nat) -> (Result_1);
+  transformPawStatus: (args:
+   record {
+     context: blob;
+     response: HttpRequestResult;
+   }) -> (HttpRequestResult) query;
+  withdrawIcp: (to: Account, amount: nat) -> (Result);
+}
