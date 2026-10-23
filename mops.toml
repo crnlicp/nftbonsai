@@ -35,6 +35,9 @@ check-limit = 1
 main = "tools/ArtHarness.mo"
 candid = "tools/art-tests.did"
 
+[canisters.art-lab]
+main = "tools/ArtLab.mo"
+
 [canisters.mock-ledger]
 main = "tools/MockLedger.mo"
 

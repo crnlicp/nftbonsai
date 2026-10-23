@@ -6,6 +6,7 @@ import { Mint } from "./pages/Mint";
 import { MyNFTs } from "./pages/MyNFTs";
 import { Gallery } from "./pages/Gallery";
 import { Wallet } from "./pages/Wallet";
+import { ArtLab } from "./pages/ArtLab";
 
 export function App() {
   return (
@@ -19,6 +20,7 @@ export function App() {
             <Route path="/my-nfts" element={<MyNFTs />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/wallet" element={<Wallet />} />
+            <Route path="/art-lab" element={<ArtLab />} />
             <Route path="*" element={<Landing />} />
           </Route>
         </Routes>

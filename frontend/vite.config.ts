@@ -25,6 +25,12 @@ function devServer() {
       params.set("PUBLIC_NFT_IMAGE_ORIGIN", gateway.origin);
     }
   }
+  try {
+    // Local-only preview canister behind /art-lab; absent from other environments.
+    params.set("PUBLIC_CANISTER_ID:art-lab", execFileSync("icp", ["canister", "status", "art-lab", "-e", environment, "--id-only"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim());
+  } catch {
+    // Not deployed here.
+  }
   const cookie = Array.from(params, ([key, value]) => `${key}=${value}`).join("&");
   return {
     port: 5173,

@@ -14,7 +14,7 @@ while (index < 25) {
   let tier = index % 5;
   let art = Art.generate(seed, tier, 0);
   assert Art.valid(art);
-  assert art.version == 7;
+  assert art.version == 8;
   // Each named tier fixes branch count, canopy density and pot colour.
   assert art.traits.branchCount.toNat() == 3 + tier;
   assert art.traits.leafDensity.toNat() == [0, 0, 1, 1, 2][tier];
@@ -27,7 +27,7 @@ while (index < 25) {
   assert occupied >= 180 and occupied <= 1800;
   // Semi-cascade sweeps past the pot sideways; Art.valid already rejects downward trunk/branch segments.
   if (art.traits.trunkStyle == 3) assert art.skeleton.any(func s = s.end.x >= 50);
-  // The 7x7 vermilion pot mark stays at x 28..34, y 51..57 and rests on the pot's bottom row.
+  // The 7x7 white pot mark stays at x 28..34, y 53..59 and rests on the pot's bottom row.
   let pixels = Blob.toArray(art.pixels);
   var markCells = 0;
   var bottomCells = 0;
@@ -36,9 +36,9 @@ while (index < 25) {
     if (pixels[cell] == 10) {
       let x = cell % 64;
       let y = cell / 64;
-      assert x >= 28 and x <= 34 and y >= 51 and y <= 57;
+      assert x >= 28 and x <= 34 and y >= 53 and y <= 59;
       markCells += 1;
-      if (y == 57) bottomCells += 1;
+      if (y == 59) bottomCells += 1;
     };
     cell += 1;
   };

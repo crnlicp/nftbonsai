@@ -9,13 +9,71 @@ export type Run = [x: number, y: number, width: number, fill: string, step: numb
 export interface Growth { scene: Run[]; tree: Run[] }
 
 const SVG_OPEN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">';
-const POT_RIM = "#d4b48c";
 const ACCENT = "#b1c786";
 const LIGHT = "#f4dfab";
-const MARK = "#c2410c";
-const POT_SAMPLE = 56 * 64 + 40;
+const MARK = "#ffffff";
+const SOIL = "#3b2a22";
+const MOSS = "#5a7d2f";
+const MOSS_LIGHT = "#8fb04a";
+const SHADOW = [24, 16, 40];
+const GLOW = [255, 244, 190];
+// A plain pot-body pixel (Art.mo potSlot) that trees never cover.
+const POT_SAMPLE = 56 * 64 + 24;
 
-/** Pot mark from Art.mo: the tree silhouette pooled to 7x7, one entry per cell at x 28-34, y 51-57. */
+/** Art.mo `mix`: blends `#rrggbb` towards `target` by `percent`/100 with floor rounding. */
+export function mix(color: string, target: number[], percent: number): string {
+  return "#" + [0, 1, 2].map((channel) => {
+    const value = parseInt(color.slice(1 + channel * 2, 3 + channel * 2), 16);
+    return Math.floor((value * (100 - percent) + target[channel] * percent) / 100).toString(16).padStart(2, "0");
+  }).join("");
+}
+
+type PotTone = "pot" | "lip" | "light" | "shade" | "dark" | "lightRim" | "soil" | "moss" | "mossLight" | "groundShadow";
+
+// Art.mo POT_ROWS: (left, right) for y 48..61.
+const POT_ROWS = [[16, 46], [14, 48], [14, 48], [16, 46], [16, 46], [16, 46], [16, 46], [16, 46], [16, 46], [17, 45], [17, 45], [18, 44], [19, 43], [21, 41]];
+
+function potTone(rel: number): PotTone {
+  if (rel <= 3) return "shade";
+  if (rel <= 16) return "light";
+  if (rel <= 26) return "pot";
+  if (rel <= 34) return "lip";
+  if (rel <= 64) return "pot";
+  if (rel <= 84) return "shade";
+  return "dark";
+}
+
+/** Art.mo `potSlot`: the pot, soil, moss and pot shadow tone at a scene cell. */
+function potSlot(x: number, y: number): PotTone | undefined {
+  if (y === 47) return [20, 21, 25, 38, 41, 42].includes(x) ? "mossLight" : undefined;
+  if (y === 62) return x >= 18 && x <= 44 ? "groundShadow" : undefined;
+  if (y < 48 || y > 61) return undefined;
+  const [left, right] = POT_ROWS[y - 48];
+  if (x < left || x > right) return y === 61 && x >= 17 && x <= 45 ? "groundShadow" : undefined;
+  const rel = Math.floor((x - left) * 100 / (right - left));
+  if (y === 48) {
+    if (x === left) return "shade";
+    if (x === right) return "dark";
+    const m = (x * 3 + 1) % 7;
+    return m === 0 ? "mossLight" : m < 3 ? "moss" : "soil";
+  }
+  if (y === 49) {
+    if (x === left || x === right) return "shade";
+    return rel >= 86 ? "pot" : rel >= 30 && rel <= 40 ? "lightRim" : "lip";
+  }
+  if (y === 50) {
+    if (x === left) return "shade";
+    if (x === right) return "dark";
+    return potTone(rel);
+  }
+  if (y === 51) return rel >= 85 ? "dark" : "shade";
+  if (y === 61) return "dark";
+  if (y === 60) return rel <= 8 || rel >= 70 ? "dark" : "shade";
+  if ((y === 53 || y === 56) && rel >= 18 && rel <= 60 && (x * 5 + y) % 9 === 0) return "lightRim";
+  return potTone(rel);
+}
+
+/** Pot mark from Art.mo: the tree silhouette pooled to 7x7, one entry per cell at x 28-34, y 53-59. */
 function potMark(shape: ArrayLike<number>): boolean[] {
   let minX = 64, maxX = -1, minY = 64, maxY = -1;
   for (let index = 0; index < 4096; index++) {
@@ -47,9 +105,13 @@ function backdrop(sky: string, ground: string, pot: string, { sky: skyIndex, moo
   const disc = (cx: number, cy: number, r: number, color: string) => {
     for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r) cell(cx + x, cy + y, color);
   };
-  for (let y = 49; y <= 57; y++) {
-    const inset = Math.floor((y - 49) / 3);
-    for (let x = 17 + inset; x <= 45 - inset; x++) cell(x, y, y === 49 || x === 17 + inset ? POT_RIM : pot);
+  const tones: Record<PotTone, string> = {
+    pot, lip: mix(pot, GLOW, 45), light: mix(pot, GLOW, 22), shade: mix(pot, SHADOW, 30), dark: mix(pot, SHADOW, 60), lightRim: mix(pot, GLOW, 65),
+    soil: SOIL, moss: MOSS, mossLight: MOSS_LIGHT, groundShadow: mix(ground, SHADOW, 30),
+  };
+  for (let y = 47; y < 64; y++) for (let x = 0; x < 64; x++) {
+    const tone = potSlot(x, y);
+    if (tone) cell(x, y, tones[tone]);
   }
   if (skyIndex >= 3) {
     disc(51, 8, 3, LIGHT);
@@ -60,7 +122,7 @@ function backdrop(sky: string, ground: string, pot: string, { sky: skyIndex, moo
     cell(8 + specialElem, 43, LIGHT);
     cell(9 + specialElem, 42, LIGHT);
   }
-  potMark(shape).forEach((on, index) => { if (on) cell(28 + index % 7, 51 + Math.floor(index / 7), MARK); });
+  potMark(shape).forEach((on, index) => { if (on) cell(28 + index % 7, 53 + Math.floor(index / 7), MARK); });
   return colors;
 }
 

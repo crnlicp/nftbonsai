@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuthContext } from "./AuthProvider";
 import logo from "./logo-mark.svg";
+import { artLabId } from "../lib/actors";
 
 function short(p?: string): string {
   if (!p) return "";
@@ -9,6 +10,7 @@ function short(p?: string): string {
 
 export function Layout() {
   const { isAuthenticated, principal, signIn, signOut, isLoading, error } = useAuthContext();
+  const artLab = artLabId() !== undefined;
 
   return (
     <div className="min-h-full flex flex-col">
@@ -31,6 +33,11 @@ export function Layout() {
             <NavLink to="/wallet" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>
               Wallet
             </NavLink>
+            {artLab && (
+              <NavLink to="/art-lab" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>
+                Art lab
+              </NavLink>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {isAuthenticated ? (
@@ -55,6 +62,7 @@ export function Layout() {
           <NavLink to="/my-nfts" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>My bonsai</NavLink>
           <NavLink to="/gallery" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>Gallery</NavLink>
           <NavLink to="/wallet" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>Wallet</NavLink>
+          {artLab && <NavLink to="/art-lab" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>Art lab</NavLink>}
         </div>
       </header>
 

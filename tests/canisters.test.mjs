@@ -255,7 +255,7 @@ test("STATIC partial payments do not mint; success fulfills once despite net fee
     const token = (await f.nft.getNft(purchase.nftId[0]))[0];
     assert.equal(token.owner.toText(), owner.toText());
     const art = (await f.nft.getArtwork(token.id))[0];
-    assert.equal(art.version, 7n);
+    assert.equal(art.version, 8n);
     assert.equal(art.seed.length, 32);
     assert.equal(digest(art.silhouette), Buffer.from(art.silhouetteHash).toString("hex"));
     const image = await f.nft.http_request({ method: "GET", url: `/nft/${token.id}.svg`, headers: [], body: new Uint8Array() });
@@ -517,7 +517,11 @@ test("verifying gateway accepts images, 404 and 405; ICRC-3 witness authenticate
   } finally { await f.pic.tearDown(); }
 });
 
-test("10000 seeded trees: unique silhouettes and pixels, attached geometry, all styles/tiers", { timeout: 600_000 }, async () => {
+// Everyday runs sweep 1,000 seeds; `npm run test:art:full` (ART_SAMPLES=10000) runs the full sweep after art changes.
+const ART_SAMPLES = Number(process.env.ART_SAMPLES || 1000);
+
+test(`${ART_SAMPLES} seeded trees: unique silhouettes and pixels, attached geometry, all styles/tiers`, { timeout: 600_000 }, async () => {
+  assert.ok(Number.isInteger(ART_SAMPLES) && ART_SAMPLES >= 200 && ART_SAMPLES % 20 === 0, "ART_SAMPLES must be a multiple of 20, at least 200");
   const pic = await PocketIc.create(server.getUrl());
   const factory = ({ IDL }) => IDL.Service({
     batch: IDL.Func([IDL.Nat, IDL.Nat], [IDL.Vec(IDL.Record({ shape: IDL.Vec(IDL.Nat8), pixels: IDL.Vec(IDL.Nat8), valid: IDL.Bool, style: IDL.Nat, tier: IDL.Nat, svg: IDL.Text }))], ["query"]),
@@ -527,7 +531,7 @@ test("10000 seeded trees: unique silhouettes and pixels, attached geometry, all 
     const shapes = new Set();
     const pixels = new Set();
     const coverage = new Map();
-    for (let start = 0; start < 10_000; start += 20) {
+    for (let start = 0; start < ART_SAMPLES; start += 20) {
       const samples = await actor.batch(BigInt(start), 20n);
       for (const sample of samples) {
         assert.ok(sample.valid);
@@ -557,8 +561,8 @@ test("10000 seeded trees: unique silhouettes and pixels, attached geometry, all 
         if (sample.svg && !coverage.has(key)) coverage.set(key, sample.svg);
       }
     }
-    assert.equal(shapes.size, 10_000);
-    assert.equal(pixels.size, 10_000);
+    assert.equal(shapes.size, ART_SAMPLES);
+    assert.equal(pixels.size, ART_SAMPLES);
     assert.equal(coverage.size, 25);
     if (process.env.ART_OUTPUT_DIR) {
       await mkdir(process.env.ART_OUTPUT_DIR, { recursive: true });

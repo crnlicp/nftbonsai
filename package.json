@@ -10,7 +10,8 @@
     "samples:landing": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/landing-samples.mjs",
     "test:auth:local": "node --test tests/browser/local-auth.mjs",
     "test:browser:local": "node --test --test-concurrency=1 tests/browser/landing.mjs tests/browser/mint.mjs tests/browser/wallet.mjs",
-    "test:integration": "mops build && npm --prefix frontend run bindings && node --test tests/*.test.mjs"
+    "test:integration": "mops build && npm --prefix frontend run bindings && node --test tests/*.test.mjs",
+    "test:art:full": "mops build art-tests && ART_SAMPLES=10000 node --test --test-name-pattern='seeded trees' tests/canisters.test.mjs"
   },
   "devDependencies": {
     "@dfinity/pic": "^0.22.0",

@@ -8,7 +8,8 @@ networks:
 environments:
   - name: local
     network: local
-    canisters: [icrc7, backend, frontend]
+    # art-lab is a local-only preview canister behind the /art-lab page.
+    canisters: [icrc7, backend, frontend, art-lab]
     settings:
       backend:
         environment_variables:
@@ -33,6 +34,10 @@ canisters:
       type: "@dfinity/motoko@v5.0.0"
 
   - name: backend
+    recipe:
+      type: "@dfinity/motoko@v5.0.0"
+
+  - name: art-lab
     recipe:
       type: "@dfinity/motoko@v5.0.0"
 

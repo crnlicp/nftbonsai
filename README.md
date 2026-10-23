@@ -43,18 +43,31 @@ The original generator selected a small trait tuple; identical silhouettes were
 possible and the browser and on-chain SVG renderers disagreed. New NFTs use a
 single frozen on-chain SVG, which the app displays directly.
 
-[Art.mo](icrc7/lib/Art.mo) generates version-6 artwork entirely in Motoko:
+[Art.mo](icrc7/lib/Art.mo) generates version-8 artwork entirely in Motoko
+(tokens minted earlier keep their stored artwork):
 
-- Seed-derived trunk paths, taper, surface roots, attached primary branches and
-  twigs, and layered foliage pads with negative space.
+- Seed-derived trunks following one continuous sine centreline (gentle for
+  formal upright, deep S-bends for informal and gnarled), sampled four times per
+  row with a smooth taper, a soft base flare planted at the soil line, flared
+  surface roots (nebari), curved primary branches and twigs, and
+  cloud-like foliage pads with scalloped tops drawn back to front.
+- Pixel-art shading lit from the upper left: outlined bark with light, mid and
+  shadow tones plus groove texture, and leaf pads with highlight, light, mid,
+  shadow and dark-underside tones broken up by deterministic dithering. All
+  ramps are integer blends of the trait colours towards a shared warm highlight
+  and cool shadow.
+- A tall shaded pot with soil and moss, a wide rounded lip with a glint and an
+  under-lip shadow, a deep body with cylindrical shading and glaze streaks whose
+  bottom steps in to a foot, and a ground shadow. [growth.ts](frontend/src/lib/growth.ts) mirrors the same layout to
+  rebuild the scene behind the growing tree.
 - Formal upright, informal upright, gnarled, semi-cascade and unequal
   multi-trunk families. Trunk and branch segments never fold downward (only
   surface roots descend); `Art.valid` rejects any candidate that does.
 - Tall trunks: crowns end a few pixels below the top edge. The moon and stars are
   painted behind the tree, so canopies pass in front of them.
-- A pot mark: the tree's own silhouette, reduced to a 7×7 vermilion stamp
+- A pot mark: the tree's own silhouette, reduced to a 7×7 white stamp
   (integer area pooling of its bounding box), sits on the pot's bottom edge at
-  x 28-34, y 51-57. Every pot carries a miniature of its unique tree.
+  x 28-34, y 53-59. Every pot carries a miniature of its unique tree.
 - Deterministic integer rasterization, palette shading, seasonal accents and
   a canonical SVG serialized from the saved pixel buffer.
 - The NFT stores the seed, generator version, accepted attempt, skeleton, pads,
@@ -95,7 +108,9 @@ Mint page previews the chosen tier in the Mystery Pot (pot colour, branch count,
 canopy) before purchase.
 
 This remains stylized pixel art, not photorealism or a botanical simulation.
-The regression suite checks 10,000 seeds for distinct silhouettes and RGB
+The regression suite checks 1,000 seeds on every run (10,000 with
+`npm run test:art:full`, which should be run after any change to the art
+generator) for distinct silhouettes and RGB
 hashes, bounded occupancy, connected tree pixels, valid attached/tapered trunk
 geometry and all 25 style/tier combinations. It also compares RGB hashes with
 colors reconstructed from the canonical SVG.
@@ -198,10 +213,15 @@ npm --prefix frontend run build
 The Motoko JSON library contains async helpers that WASI cannot compile, so the
 Paw parser unit test uses the Motoko interpreter; geometry tests use pinned
 Wasmtime; that WASI test renders only 25 trees because a single WASI message never
-garbage-collects. The 10,000-tree stress test runs bounded PocketIC queries to avoid
-exhausting a single WASI invocation's memory. Allow several minutes for it.
+garbage-collects. The seeded-tree stress test runs bounded PocketIC queries to avoid
+exhausting a single WASI invocation's memory. It checks 1,000 trees by default;
+set `ART_SAMPLES` (a multiple of 20, at least 200) or run `npm run test:art:full`
+for the 10,000-tree sweep, which takes several minutes.
 `art-tests` in the mops manifest is a **test-only** canister and is not deployed
-by [icp.yaml](icp.yaml). PocketIC exercises fresh-chain installation and populated
+by [icp.yaml](icp.yaml). `art-lab` ([ArtLab.mo](tools/ArtLab.mo)) is deployed
+only by the `local` environment: the frontend then shows an **Art lab** page
+(`/art-lab`) whose button renders 50 throwaway random trees from the art
+algorithm per press. Nothing is minted, and mainnet never deploys it. PocketIC exercises fresh-chain installation and populated
 same-chain upgrades, including pending purchases, artwork, approvals and history.
 
 For deployment commands, follow [Deployment: local and mainnet](#deployment-local-and-mainnet)
@@ -289,7 +309,7 @@ Export an optional contact sheet from the actual Motoko renderer:
 
 ```bash
 ART_OUTPUT_DIR=/absolute/output/directory \
-  node --test --test-name-pattern='10000 seeded' tests/canisters.test.mjs
+  node --test --test-name-pattern='seeded trees' tests/canisters.test.mjs
 ```
 
 This writes a 25-cell SVG contact sheet. Run `npm run build` and frontend
@@ -337,7 +357,8 @@ npm test
 npm --prefix frontend run build
 ```
 
-`npm test` includes the 10,000-tree test and may take several minutes.
+`npm test` checks 1,000 seeded trees. Run `npm run test:art:full` (several
+minutes) for the 10,000-tree sweep after changing the art generator.
 These tests use local test infrastructure, not payable Paw checkout.
 If a corporate TLS proxy is required, install its trusted CA; see the TLS notes
 above. Never disable TLS or certificate verification.
