@@ -1,7 +1,6 @@
 networks:
   - name: local
     mode: managed
-    ii: true
     gateway:
       port: 8765
 
@@ -14,9 +13,6 @@ environments:
       backend:
         environment_variables:
           MOCK_PAYMENTS: "1"
-      frontend:
-        environment_variables:
-          PUBLIC_II_AUTHORIZE_URL: "http://uqzsh-gqaaa-aaaaq-qaada-cai.localhost:8765/authorize"
   - name: ic
     network: ic
     canisters: [icrc7, backend, frontend]

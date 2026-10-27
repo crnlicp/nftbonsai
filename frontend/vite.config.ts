@@ -13,12 +13,6 @@ function devServer() {
     execFileSync(icp, ["network", "status", "-e", environment, "--json"], { encoding: "utf8" }),
   );
   const params = new URLSearchParams({ ic_root_key: status.root_key });
-  if (environment === "local") {
-    const identityProvider = new URL(status.gateway_url);
-    identityProvider.hostname = "uqzsh-gqaaa-aaaaq-qaada-cai.localhost";
-    identityProvider.pathname = "/authorize";
-    params.set("PUBLIC_II_AUTHORIZE_URL", identityProvider.toString());
-  }
   for (const name of ["backend", "icrc7"]) {
     const id = execFileSync(icp, ["canister", "status", name, "-e", environment, "--id-only"], { encoding: "utf8" }).trim();
     params.set(`PUBLIC_CANISTER_ID:${name}`, id);
@@ -52,7 +46,7 @@ export default defineConfig(({ command }) => ({
       configureServer(server) {
         server.middlewares.use((request, response, next) => {
           const path = request.url?.split("?")[0];
-          if (path !== "/.well-known/ii-auth-callbacks" && path !== "/.well-known/ii-app-metadata") {
+          if (path !== "/.well-known/ii-app-metadata") {
             next();
             return;
           }

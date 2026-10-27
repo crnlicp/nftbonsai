@@ -1,24 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { chromium } from "playwright";
+import { createAuthContext, signInWithPasskey } from "./identity.mjs";
 
 // Requires the local network with MOCK_PAYMENTS=1, where a purchase is paid and minted without checkout.
 test("a freshly minted bonsai grows once on the Mint page; past mints stay static and are not the default view", { timeout: 120_000 }, async () => {
   const origin = process.env.MINT_TEST_ORIGIN ?? "http://frontend.local.localhost:8765";
   const browser = await chromium.launch();
   try {
-    const context = await browser.newContext();
-    context.on("page", (page) => page.on("dialog", (dialog) => dialog.accept(Date.now().toString())));
+    const context = await createAuthContext(browser);
     const app = await context.newPage();
     const errors = [];
     app.on("pageerror", (error) => errors.push(error.message));
     await app.goto(new URL("/mint", origin).href);
-    await app.getByRole("button", { name: "Sign in with Internet Identity", exact: true }).click();
-    await app.getByRole("button", { name: "Create", exact: true }).click();
-    await app.getByRole("button", { name: "Create with passkey", exact: true }).click();
-    await app.getByPlaceholder("Identity name").fill("Bonsai mint growth regression");
-    await app.getByRole("button", { name: "Create identity", exact: true }).click();
-    await app.getByRole("button", { name: "Continue", exact: true }).click();
+    await signInWithPasskey(app, { name: "Bonsai mint growth regression" });
     await app.getByRole("button", { name: "Pay €99 by card", exact: true }).click();
 
     const tree = app.locator(".growing-bonsai");

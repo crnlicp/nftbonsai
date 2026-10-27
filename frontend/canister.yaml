@@ -6,5 +6,3 @@ recipe:
     build:
       - npm ci --no-audit --no-fund
       - npm run build
-    presync:
-      - node scripts/auth-callbacks.mjs

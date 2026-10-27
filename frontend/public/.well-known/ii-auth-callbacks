@@ -1,5 +1,0 @@
-{
-  "callbacks": [
-    "http://localhost:5173/auth"
-  ]
-}

@@ -2,28 +2,27 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { test } from "node:test";
 import { chromium } from "playwright";
+import { createAuthContext, signInWithPasskey } from "./identity.mjs";
 
 // Requires the local network with the ICP ledger; the DEV identity holds local test ICP.
 const funder = process.env.FUND_IDENTITY ?? "DEV";
-const icp = (...args) => execFileSync("node_modules/.bin/icp", [...args, "--identity", funder], { encoding: "utf8" }).trim();
+const passwordFile = process.env.FUND_IDENTITY_PASSWORD_FILE;
+const icp = (...args) => execFileSync("node_modules/.bin/icp", [
+  ...args, "--identity", funder,
+  ...(passwordFile ? ["--identity-password-file", passwordFile] : []),
+], { encoding: "utf8" }).trim();
 const fund = (principal, amount) => icp("token", "transfer", amount, principal, "-n", "local", "--quiet");
 
 test("wallet shows, receives and sends ICP; Mint pays with ICP and mints the chosen tier", { timeout: 180_000 }, async () => {
   const origin = process.env.MINT_TEST_ORIGIN ?? "http://frontend.local.localhost:8765";
   const browser = await chromium.launch();
   try {
-    const context = await browser.newContext();
-    context.on("page", (page) => page.on("dialog", (dialog) => dialog.accept(Date.now().toString())));
+    const context = await createAuthContext(browser);
     const app = await context.newPage();
     const errors = [];
     app.on("pageerror", (error) => errors.push(error.message));
     await app.goto(new URL("/wallet", origin).href);
-    await app.getByRole("button", { name: "Sign in with Internet Identity", exact: true }).click();
-    await app.getByRole("button", { name: "Create", exact: true }).click();
-    await app.getByRole("button", { name: "Create with passkey", exact: true }).click();
-    await app.getByPlaceholder("Identity name").fill("Bonsai wallet regression");
-    await app.getByRole("button", { name: "Create identity", exact: true }).click();
-    await app.getByRole("button", { name: "Continue", exact: true }).click();
+    await signInWithPasskey(app, { name: "Bonsai wallet regression" });
 
     const balance = app.getByTestId("icp-balance");
     await balance.waitFor();

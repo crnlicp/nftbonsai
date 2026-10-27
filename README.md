@@ -223,8 +223,8 @@ in the parent directory. Canister recipes run in their own YAML file's directory
 The three Motoko recipes share `backend/mops.toml` and its dependency cache.
 
 Prerequisites: Node 22+, `ic-wasm`. Use the **project-local ICP CLI and mops**
-versions, not older global installations. The pinned ICP CLI selects a local
-Internet Identity build compatible with auth 11's session-delegation protocol.
+versions, not older global installations. ICP CLI >= 0.2.4 supports mainnet
+Internet Identity delegations on the local network; this project pins CLI 1.7.0.
 
 ```bash
 cd backend
@@ -259,18 +259,20 @@ below. Reinstall is an optional destructive operation, not the normal startup pa
 Vite reads runtime canister IDs and the local root key from `icp-cli`, sets the
 development `ic_env` cookie and proxies `/api`. Production uses the runtime
 cookie and generated `@icp-sdk/bindgen` actors, not build-time canister IDs or
-`fetchRootKey()`. The local network enables Internet Identity and configures
-`http://uqzsh-gqaaa-aaaaq-qaada-cai.localhost:8765/authorize`; mainnet uses the
-SDK's default `id.ai`. The explicit local frontend principal avoids depending
-on the optional `id.ai.localhost` gateway alias. Local login uses a full-page
-SDK redirect through `/auth`; mainnet keeps the default popup flow. The
-certified, CORS-enabled `/.well-known/ii-auth-callbacks` allow-list is generated
-at frontend sync time from the current local canister ID and gateway port,
-so it remains correct after recreating local canisters. Vite development uses
-`http://localhost:5173/auth`; update the development callback if changing that origin.
-An already-running network started before `ii: true` was added must be restarted
-by its operator to provision local II. Browser passkey creation requires a
-human authenticator and must also be tested on the intended production origin.
+`fetchRootKey()`. Both local development and mainnet use the SDK's default
+`https://id.ai` popup flow, with no local Internet Identity canister or redirect
+callback. The auth client uses the mainnet root key to verify hosted II;
+its agent explicitly targets `https://icp-api.io` rather than inheriting localhost.
+Backend and NFT actors still use the local runtime root key when running locally.
+Sign-in requires internet access and a real Internet Identity account, not a
+local seed-index prompt. Local origins (including Vite and gateway aliases)
+have different principals from each other and from production, so use one
+origin consistently. Existing local-II accounts do not carry over to hosted II;
+their local purchases remain owned by the old principals.
+Already-running networks may still have the old local II installed; it is no
+longer used. No network reset or canister reinstall is needed for this change.
+Browser passkey approval must also be tested with a human authenticator on the
+intended production origin.
 The frontend uses `@dfinity/static-site`, with security/CSP/cache rules in
 [_headers](frontend/public/_headers), SPA routing in
 [_redirects](frontend/public/_redirects), and real 404 responses for missing
@@ -278,56 +280,34 @@ bundles and previews. Internet Identity can read the CORS-enabled
 [app metadata](frontend/public/.well-known/ii-app-metadata). Local image URLs resolve the NFT canister from runtime
 configuration and preserve the current gateway port.
 
-The launcher's dummy-auth **Enter seed index** browser prompt blocks the II
-page's JavaScript. With popup transport, leaving it open for more than the
-SDK's heartbeat timeout reproduces **"Channel was closed before a response was
-received"**. Local login therefore uses redirect transport: no live popup
-channel is needed while the prompt is open. No heartbeat timeout or
-certificate-verification settings are weakened.
-
-For older deployments with the same error, check the network launcher as well
-as npm dependencies. The June
-2026 launcher serves the old `icrc34_delegation` flow, whereas auth 11 requests
-`ii_session_delegation`. `icp network update` downloads a launcher but an older
-global CLI can still select an older compatible release. Use `npm exec icp`
-(the project pins CLI 1.7.0), update, then stop/start the local network.
-Close stale login popups and reload the app to refresh the runtime root-key
-cookie. Treat launcher changes as a potential local reset; export anything
-important before restarting and redeploy if the local instance was recreated.
-
-The local browser regression verifies redirect registration and consent while
-deliberately leaving the seed prompt open for eight seconds:
+The browser regressions use Chromium's virtual WebAuthn authenticator with
+hosted II. They require internet access and create disposable mainnet II
+accounts; their passkeys stay in browser memory and must never hold real funds.
+Only the local ledger is funded by the wallet regression.
+It uses the `DEV` CLI identity by default; set `FUND_IDENTITY` to an existing
+non-anonymous local test funder and, for an encrypted identity, set
+`FUND_IDENTITY_PASSWORD_FILE` to its password file path.
 
 ```bash
 npm exec -- playwright install chromium  # once, if Chromium is not installed
 npm run test:auth:local                 # requires the deployed local network
-npm run test:browser:local              # landing and post-mint growth; local mock payments
+npm run test:browser:local              # landing, post-mint growth and wallet; local mock payments
 ```
 
-The launcher enables **dummy authentication**, not real biometric passkeys. On a
-fresh network, choose **Create → Create with passkey**, give the identity a name,
-then answer **Enter seed index** with a non-negative integer and approve
-**Continue**. Remember that integer for later local sign-ins. It is a development
-selector, not a secure password or wallet seed; never use these identities for
-funds.
-
-**`Cannot read properties of undefined (reading 'anchor_number')`** is a bug in
-the local II dummy-auth sign-in path: it assumes the entered seed index already
-has a registered identity. This happens when signing in before registration,
-entering a different index, or reusing an identity from a reset local network.
-Return to the current app, close stale popups, and create an identity on the
-current network first. Do not reset the network or clear mainnet identity data
-to address this. Local seed-index prompts are unrelated to real `https://id.ai`
-passkeys.
-
-The browser regression creates a fresh local test identity, approves consent,
+The auth regression creates a fresh hosted II account, approves consent,
 checks the authenticated purchase page, reloads to verify session restoration,
 and signs out/in again. A second, fresh browser context signs into that existing
-identity with another eight-second prompt delay, checks the principal is unchanged,
-and verifies the app returns to the original route. Both the named gateway alias
+account using the same virtual passkey, checks the principal is unchanged,
+and verifies the app stays on the original route. Both the named gateway alias
 and canister-principal origin are covered. To run against an already-started Vite
 server instead, use `AUTH_TEST_ORIGIN=http://localhost:5173 npm run test:auth:local`.
-It needs no real passkey and does not test biometric approval.
+It needs no physical authenticator and does not test biometric approval.
+
+If Chromium does not trust a corporate TLS proxy's CA, source
+`scripts/dev-env.sh` and set `AUTH_SYSTEM_CA=1` for the auth, mint and wallet
+browser tests. This routes their HTTPS requests through Playwright's Node
+transport using the configured system CA store; TLS and IC certificate
+verification remain enabled.
 
 For a corporate TLS proxy, install its trusted CA into the system trust store,
 then optionally `source scripts/dev-env.sh`. That helper uses OpenSSL trust
@@ -395,7 +375,7 @@ above. Never disable TLS or certificate verification.
 
 ### 2. Local deployment (mock payments, no charges)
 
-The checked-in local environment enables local Internet Identity and
+The checked-in local environment uses hosted `https://id.ai` authentication and
 `MOCK_PAYMENTS: "1"`. No Paw key is required or used for mock purchases.
 
 ```bash
@@ -413,8 +393,8 @@ npm exec -- icp canister call backend paymentInfo '()' -e local --query
 ```
 
 Expect `mock = true`. `configured = false` is normal for local mock mode.
-Open **http://frontend.local.localhost:8765/mint**, create/sign into a local
-identity as described above, and create a purchase. Mock mode automatically
+Open **http://frontend.local.localhost:8765/mint**, sign in through `https://id.ai`
+with your Internet Identity, and create a purchase. Mock mode automatically
 simulates payment and mints; no Paw payment link is generated.
 
 To run the browser regression:

@@ -12,10 +12,6 @@
   Content-Type: application/json
   Access-Control-Allow-Origin: *
 
-/.well-known/ii-auth-callbacks
-  Content-Type: application/json
-  Access-Control-Allow-Origin: *
-
 /.well-known/ii-alternative-origins
   Content-Type: application/json
   Access-Control-Allow-Origin: *

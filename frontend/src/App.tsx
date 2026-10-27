@@ -16,7 +16,6 @@ export function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Landing />} />
             <Route path="/mint" element={<Mint />} />
-            <Route path="/auth" element={<Mint />} />
             <Route path="/my-nfts" element={<MyNFTs />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/wallet" element={<Wallet />} />
