@@ -29,25 +29,7 @@ environments:
         freezing_threshold: 2592000
 
 canisters:
-  - name: icrc7
-    recipe:
-      type: "@dfinity/motoko@v5.0.0"
-
-  - name: backend
-    recipe:
-      type: "@dfinity/motoko@v5.0.0"
-
-  - name: art-lab
-    recipe:
-      type: "@dfinity/motoko@v5.0.0"
-
-  - name: frontend
-    recipe:
-      type: "@dfinity/static-site@v0.4.1"
-      configuration:
-        dir: frontend/dist
-        build:
-          - npm --prefix frontend ci --no-audit --no-fund
-          - npm --prefix frontend run build
-        presync:
-          - node scripts/auth-callbacks.mjs
+  - backend/src/icrc7
+  - backend
+  - backend/tools
+  - frontend

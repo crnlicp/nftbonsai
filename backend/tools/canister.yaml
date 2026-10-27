@@ -1,0 +1,3 @@
+name: art-lab
+recipe:
+  type: "@dfinity/motoko@v5.0.0"

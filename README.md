@@ -43,7 +43,7 @@ The original generator selected a small trait tuple; identical silhouettes were
 possible and the browser and on-chain SVG renderers disagreed. New NFTs use a
 single frozen on-chain SVG, which the app displays directly.
 
-[Art.mo](icrc7/lib/Art.mo) generates version-8 artwork entirely in Motoko
+[Art.mo](backend/src/icrc7/lib/Art.mo) generates version-8 artwork entirely in Motoko
 (tokens minted earlier keep their stored artwork):
 
 - Seed-derived trunks following one continuous sine centreline (gentle for
@@ -96,7 +96,7 @@ tier anchor it reaches**. For example, EUR 150 is Grove and EUR 250 is Jade.
 | Lacquer | 499 | 204.51 | 6 | lush | blue lacquer |
 | Imperial | 999 | 409.43 | 7 | dense | gold |
 
-Anchors and range are fixed in [Tiers.mo](backend/lib/Tiers.mo). The ICP price
+Anchors and range are fixed in [Tiers.mo](backend/src/lib/Tiers.mo). The ICP price
 is `price x e8sPerEur`, rounded **up** to 0.0001 ICP. `e8sPerEur` is a
 controller-set rate (`setIcpRate`, default `40_983_606`, which is
 `1e8 / 2.44`), so quoting costs no cycles or outcalls. `pricing()` returns
@@ -194,20 +194,49 @@ provenance; use the certified image or verify the proof yourself.
 
 ## Development and verification
 
+### Repository layout
+
+```text
+backend/
+  src/                    Payment canister sources (main.mo, types, lib, mixins, migrations)
+    icrc7/                NFT canister sources and canister.yaml
+  backend.did             Curated payment interface
+  icrc7.did               Curated NFT interface
+  canister.yaml           Payment canister recipe
+  mops.toml, mops.lock     Shared Motoko configuration and dependencies
+  package.json            Shared development tools and test commands
+  deployed/               Stable-signature baselines
+  test/, tests/, tools/    Tests and test canisters; tools/canister.yaml defines art-lab
+  scripts/                Development environment and sample-generation helpers
+frontend/
+  src/, public/           Browser application and static assets
+  canister.yaml           Static-site recipe
+  scripts/                Frontend sync helpers
+  package.json            Frontend dependencies and build commands
+icp.yaml                  Project-wide canisters, networks, and environments
+.icp/data/                Persistent deployment mappings
+```
+
+Run the shared tooling commands below from `backend/`; frontend commands use
+`npm --prefix ../frontend`. The ICP CLI discovers the project-wide `icp.yaml`
+in the parent directory. Canister recipes run in their own YAML file's directory.
+The three Motoko recipes share `backend/mops.toml` and its dependency cache.
+
 Prerequisites: Node 22+, `ic-wasm`. Use the **project-local ICP CLI and mops**
 versions, not older global installations. The pinned ICP CLI selects a local
 Internet Identity build compatible with auth 11's session-delegation protocol.
 
 ```bash
+cd backend
 npm ci
-npm --prefix frontend ci
+npm --prefix ../frontend ci
 npm exec mops install
 npm exec mops toolchain use moc 1.16.1
 npm exec mops toolchain use wasmtime 50.0.0
 npm run check
 npm run build
 npm test
-npm --prefix frontend run build
+npm --prefix ../frontend run build
 ```
 
 The Motoko JSON library contains async helpers that WASI cannot compile, so the
@@ -218,7 +247,7 @@ exhausting a single WASI invocation's memory. It checks 1,000 trees by default;
 set `ART_SAMPLES` (a multiple of 20, at least 200) or run `npm run test:art:full`
 for the 10,000-tree sweep, which takes several minutes.
 `art-tests` in the mops manifest is a **test-only** canister and is not deployed
-by [icp.yaml](icp.yaml). `art-lab` ([ArtLab.mo](tools/ArtLab.mo)) is deployed
+by [icp.yaml](icp.yaml). `art-lab` ([ArtLab.mo](backend/tools/ArtLab.mo)) is deployed
 only by the `local` environment: the frontend then shows an **Art lab** page
 (`/art-lab`) whose button renders 50 throwaway random trees from the art
 algorithm per press. Nothing is minted, and mainnet never deploys it. PocketIC exercises fresh-chain installation and populated
@@ -319,7 +348,7 @@ landing page's checked-in animated sample pool, use `npm run samples:landing`.
 ### Repository hygiene
 
 Commit source, package lockfiles, curated Candid interfaces, the migration chains,
-the stable-signature baselines in `deployed/reinstall/`, and the mainnet canister
+the stable-signature baselines in `backend/deployed/reinstall/`, and the mainnet canister
 mapping in `.icp/data/mappings/ic.ids.json`. The baseline directory's name is
 historical; these signatures also protect normal, state-preserving upgrades.
 Keep the pinned ICP skills and `skills-lock.json` together.
@@ -329,12 +358,13 @@ output, browser-test reports, local environment files and private-key files.
 Do not commit wallet seeds, Paw keys or identity-password files. Runtime canister
 configuration comes from `ic_env`; legacy `VITE_*` environment files are not used.
 Before committing, run `npm run check`, `npm test` and
-`npm --prefix frontend run build`, then review `git status --short` and the
+`npm --prefix ../frontend run build`, then review `git status --short` and the
 staged diff. Do not remove applied migrations or the mainnet mapping as cleanup.
 
 ## Deployment: local and mainnet
 
-Run commands from the repository root in Bash. Mainnet commands spend real ICP
+Run commands from `backend/` in Bash (start with `cd backend` from the repository
+root). Mainnet commands spend real ICP
 and cycles; none of the commands below are run automatically by this README.
 
 ### 1. Install prerequisites and verify the build
@@ -347,14 +377,14 @@ must not be substituted during deployment.
 ```bash
 npm install -g @icp-sdk/ic-wasm
 npm ci
-npm --prefix frontend ci
+npm --prefix ../frontend ci
 npm exec -- mops install
 npm exec -- mops toolchain use moc 1.16.1
 npm exec -- mops toolchain use wasmtime 50.0.0
 npm run check
 npm run build
 npm test
-npm --prefix frontend run build
+npm --prefix ../frontend run build
 ```
 
 `npm test` checks 1,000 seeded trees. Run `npm run test:art:full` (several
@@ -397,7 +427,7 @@ npm run test:auth:local
 For frontend development, leave the network running and use a second terminal:
 
 ```bash
-npm --prefix frontend run dev
+npm --prefix ../frontend run dev
 # Open http://localhost:5173
 ```
 
@@ -613,7 +643,7 @@ artwork, history, and the Paw key. For frontend-only changes, preserve all
 backend state and regenerate the deployment-specific callbacks with:
 
 ```bash
-npm --prefix frontend run build
+npm --prefix ../frontend run build
 npm exec -- icp sync frontend -e ic --identity bonsai-production
 # For the local frontend instead:
 # npm exec -- icp sync frontend -e local
@@ -706,7 +736,7 @@ The authorized reset targets **local only**, not mainnet. After this fresh-chain
 release, use ordinary upgrades to preserve its data, keep enhanced
 orthogonal-persistence Wasm memory, and append migrations for state changes.
 Do not rewrite already-deployed migration files. The PocketIC tests use
-`wasm_memory_persistence = keep`; [mops.toml](mops.toml) records the new deployed
+`wasm_memory_persistence = keep`; [mops.toml](backend/mops.toml) records the new deployed
 stable baselines separately from the pre-reinstall baselines. Back up and
 rehearse before any future mainnet action; never reinstall real purchases/NFTs
 without a separate, explicit decision to destroy them.

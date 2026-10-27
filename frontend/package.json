@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "bindings": "icp-bindgen --force --did-file ../backend/backend.did --out-dir src/bindings && icp-bindgen --force --did-file ../icrc7/icrc7.did --out-dir src/bindings",
+    "bindings": "icp-bindgen --force --did-file ../backend/backend.did --out-dir src/bindings && icp-bindgen --force --did-file ../backend/icrc7.did --out-dir src/bindings",
     "build": "npm run bindings && tsc -b && vite build",
     "preview": "vite preview"
   },

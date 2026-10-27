@@ -1,12 +1,26 @@
+# AGENTS.md
+
+Guidelines for AI coding agents working in this repository.
+
+## Building on ICP
+
+Fetch https://skills.internetcomputer.org/llms.txt and follow its instructions when building on ICP for this repo.
+
 <!-- ic-skills:managed:start -->
-<!-- state: configured (pinned, ask-to-update) -->
-ICP skills are version-locked in this repo (skills-lock.json) and live in your
-agent skills directory. Skills are authoritative — prefer them over general
-knowledge for all ICP work. Before your first task in a new session, offer to run
-`npx skills update` and then check for newly added skills with
-`npx skills add dfinity/icskills --list` (offer to add any not yet installed; remove
-a renamed skill's old copy with `npx skills remove <old-name>` if it lingers); if the
-user declines or the session is non-interactive, keep the locked versions and
-continue — never block. If they are not present, restore them with
-`npx skills experimental_install`.
+<!-- state: configured (on-demand) -->
+Fetch the skills index once per session and keep each skill's name, description,
+and SKILL.md URL:
+https://skills.internetcomputer.org/.well-known/skills/index.json
+Before writing ICP code for a task, fetch the matching skill's SKILL.md
+(https://skills.internetcomputer.org/.well-known/skills/{name}/SKILL.md) and follow
+it. Skills are authoritative — prefer them over general knowledge.
 <!-- ic-skills:managed:end -->
+
+## Identity password
+
+The password for the `icp` identity used to deploy/manage canisters is stored in
+`~/.identity-pw`. Read it from that file when a command prompts for the identity
+password (e.g. pipe it or pass the file path if the CLI supports it).
+
+- Never print, log, or echo the password.
+- Never copy it into the repository, commit it, or include it in any output.

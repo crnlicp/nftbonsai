@@ -1,0 +1,10 @@
+name: frontend
+recipe:
+  type: "@dfinity/static-site@v0.4.1"
+  configuration:
+    dir: dist
+    build:
+      - npm ci --no-audit --no-fund
+      - npm run build
+    presync:
+      - node scripts/auth-callbacks.mjs

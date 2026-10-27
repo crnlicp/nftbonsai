@@ -1,13 +1,16 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { icpBindgen } from "@icp-sdk/bindgen/plugins/vite";
 
+const icp = fileURLToPath(new URL("../backend/node_modules/.bin/icp", import.meta.url));
+
 function devServer() {
   const environment = process.env.ICP_ENVIRONMENT || "local";
   const status: { api_url: string; root_key: string; gateway_url: string } = JSON.parse(
-    execFileSync("icp", ["network", "status", "-e", environment, "--json"], { encoding: "utf8" }),
+    execFileSync(icp, ["network", "status", "-e", environment, "--json"], { encoding: "utf8" }),
   );
   const params = new URLSearchParams({ ic_root_key: status.root_key });
   if (environment === "local") {
@@ -17,7 +20,7 @@ function devServer() {
     params.set("PUBLIC_II_AUTHORIZE_URL", identityProvider.toString());
   }
   for (const name of ["backend", "icrc7"]) {
-    const id = execFileSync("icp", ["canister", "status", name, "-e", environment, "--id-only"], { encoding: "utf8" }).trim();
+    const id = execFileSync(icp, ["canister", "status", name, "-e", environment, "--id-only"], { encoding: "utf8" }).trim();
     params.set(`PUBLIC_CANISTER_ID:${name}`, id);
     if (name === "icrc7") {
       const gateway = new URL(status.gateway_url);
@@ -27,7 +30,7 @@ function devServer() {
   }
   try {
     // Local-only preview canister behind /art-lab; absent from other environments.
-    params.set("PUBLIC_CANISTER_ID:art-lab", execFileSync("icp", ["canister", "status", "art-lab", "-e", environment, "--id-only"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim());
+    params.set("PUBLIC_CANISTER_ID:art-lab", execFileSync(icp, ["canister", "status", "art-lab", "-e", environment, "--id-only"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim());
   } catch {
     // Not deployed here.
   }
@@ -60,7 +63,7 @@ export default defineConfig(({ command }) => ({
       },
     },
     icpBindgen({ didFile: "../backend/backend.did", outDir: "./src/bindings" }),
-    icpBindgen({ didFile: "../icrc7/icrc7.did", outDir: "./src/bindings" }),
+    icpBindgen({ didFile: "../backend/icrc7.did", outDir: "./src/bindings" }),
   ],
   ...(command === "serve" ? { server: devServer() } : {}),
   build: { outDir: "dist", emptyOutDir: true },
