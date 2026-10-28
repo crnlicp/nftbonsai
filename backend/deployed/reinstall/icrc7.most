@@ -1,41 +1,41 @@
 // Version: 4.0.0
-type Account__474930811 = {owner : Principal; subaccount : ?Blob};
-type Account__945459967 = {owner : Principal; subaccount : ?Blob};
-type ApprovalRecord__1070464862 =
-  {createdAt : Nat64; expiresAt : ?Nat64; spender : Account__474930811};
-type Approval__896342550 =
-  {createdAt : Nat64; expiresAt : ?Nat64; spender : Account__945459967};
-type Artwork__1048799097 =
+type Account__326311044 = {owner : Principal; subaccount : ?Blob};
+type Account__733831740 = {owner : Principal; subaccount : ?Blob};
+type ApprovalRecord__99589293 =
+  {createdAt : Nat64; expiresAt : ?Nat64; spender : Account__326311044};
+type Approval__739454996 =
+  {createdAt : Nat64; expiresAt : ?Nat64; spender : Account__733831740};
+type Artwork__311224520 =
   {
     attempt : Nat;
-    pads : [{center : Point__398537541; rx : Int; ry : Int}];
+    pads : [Pad__1061117395];
+    pixelHash : Blob;
+    pixels : Blob;
+    seed : Blob;
+    silhouette : Blob;
+    silhouetteHash : Blob;
+    skeleton : [Segment__22677209];
+    svg : Text;
+    traits : BonsaiTraits__730500116;
+    version : Nat
+  };
+type Artwork__721564639 =
+  {
+    attempt : Nat;
+    pads : [{center : Point__960723337; rx : Int; ry : Int}];
     pixelHash : Blob;
     pixels : Blob;
     seed : Blob;
     silhouette : Blob;
     silhouetteHash : Blob;
     skeleton :
-      [{end : Point__398537541; start : Point__398537541; width : Int}];
+      [{end : Point__960723337; start : Point__960723337; width : Int}];
     svg : Text;
-    traits : Traits__1047005355;
+    traits : Traits__969076043;
     version : Nat
   };
-type Artwork__710630732 =
-  {
-    attempt : Nat;
-    pads : [Pad__345038176];
-    pixelHash : Blob;
-    pixels : Blob;
-    seed : Blob;
-    silhouette : Blob;
-    silhouetteHash : Blob;
-    skeleton : [Segment__448511669];
-    svg : Text;
-    traits : BonsaiTraits__693172101;
-    version : Nat
-  };
-type BonsaiTraits__384967159 = BonsaiTraits__693172101;
-type BonsaiTraits__693172101 =
+type BonsaiTraits__346693618 = BonsaiTraits__730500116;
+type BonsaiTraits__730500116 =
   {
     branchCount : Nat8;
     ground : Nat8;
@@ -70,44 +70,44 @@ type Map__603270868<K, V> =
   {var root : Node__204828119<K, V>; var size : Nat__227979830};
 type Nat__227979830 = Nat__920180692;
 type Nat__920180692 = Nat;
-type NewActor__614987095 =
+type NewActor__220072593 =
   {
-    artwork : Map__230067015<Nat, Artwork__1048799097>;
+    artwork : Map__230067015<Nat, Artwork__721564639>;
     artworkHashes : Map__230067015<Blob, Blob>;
-    blocks : Map__230067015<Nat, Value__249231119>;
+    blocks : Map__230067015<Nat, Value__861660870>;
     certStore : Store__398375314;
-    collectionApprovals : Map__230067015<Principal, [Approval__896342550]>;
+    collectionApprovals : Map__230067015<Principal, [Approval__739454996]>;
     counters :
       {var blockCount : Nat; var lastBlockHash : ?Blob; var nextId : Nat};
     mintKeys : Map__230067015<Text, Nat>;
     mintRecipients : Map__230067015<Text, {amount : Nat; to : Principal}>;
     silhouettes : Map__230067015<Blob, Blob>;
-    tokenApprovals : Map__230067015<Nat, [Approval__896342550]>;
-    tokens : Map__230067015<Nat, Token__228125253>
+    tokenApprovals : Map__230067015<Nat, [Approval__739454996]>;
+    tokens : Map__230067015<Nat, Token__297569429>
   };
-type NewActor__977925862 =
+type NewActor__486988 =
   {mintRecipients : Map__230067015<Text, {tier : Nat; to : Principal}>};
-type NftRecord__713796055 =
+type NftRecord__1007593653 =
   {
     createdAt : Int;
     id : Nat;
     var owner : Principal;
     paymentId : Text;
-    traits : BonsaiTraits__384967159
+    traits : BonsaiTraits__346693618
   };
 type Node__204828119<K, V> =
   {#internal : Internal__283199666<K, V>; #leaf : Leaf__598469445<K, V>};
 type OT__22147864 = ?T__321646963;
-type OldActor__246249152 =
+type OldActor__493289942 =
   {mintRecipients : Map__230067015<Text, {amount : Nat; to : Principal}>};
-type OldActor__914250575 = {};
-type Pad__345038176 = {center : Point__567742119; rx : Int; ry : Int};
-type Point__398537541 = {x : Int; y : Int};
-type Point__567742119 = {x : Int; y : Int};
+type OldActor__556294753 = {};
+type Pad__1061117395 = {center : Point__488499537; rx : Int; ry : Int};
+type Point__488499537 = {x : Int; y : Int};
+type Point__960723337 = {x : Int; y : Int};
 type Prefix__515036283 = [Nat8];
 type Prefix__846339658 = [Nat8];
-type Segment__448511669 =
-  {end : Point__567742119; start : Point__567742119; width : Int};
+type Segment__22677209 =
+  {end : Point__488499537; start : Point__488499537; width : Int};
 type Store__398375314 = {var tree : Tree__761691833};
 type T__321646963 =
   {
@@ -128,15 +128,15 @@ type T__321646963 =
         tree_hash : Hash__513986752
       }
   };
-type Token__228125253 =
+type Token__297569429 =
   {
     createdAt : Int;
     id : Nat;
     var owner : Principal;
     paymentId : Text;
-    traits : Traits__1047005355
+    traits : Traits__969076043
   };
-type Traits__1047005355 =
+type Traits__969076043 =
   {
     branchCount : Nat8;
     ground : Nat8;
@@ -153,46 +153,46 @@ type Traits__1047005355 =
     trunkThick : Nat8
   };
 type Tree__761691833 = LabeledTree__820607763;
-type Value__249231119 =
+type Value__644190127 = Blob;
+type Value__756415457 =
   {
-    #Array : [Value__249231119];
+    #Array : [Value__756415457];
     #Blob : Blob;
     #Int : Int;
-    #Map : [(Text, Value__249231119)];
+    #Map : [(Text, Value__756415457)];
     #Nat : Nat;
     #Text : Text
   };
-type Value__644190127 = Blob;
-type Value__813041303 =
+type Value__861660870 =
   {
-    #Array : [Value__813041303];
+    #Array : [Value__861660870];
     #Blob : Blob;
     #Int : Int;
-    #Map : [(Text, Value__813041303)];
+    #Map : [(Text, Value__861660870)];
     #Nat : Nat;
     #Text : Text
   };
 {
-  "20261021_134000" : (_old : OldActor__914250575) -> NewActor__614987095;
-  "20261022_150000" : (old : OldActor__246249152) -> NewActor__977925862
+  "20261021_134000" : (_old : OldActor__556294753) -> NewActor__220072593;
+  "20261022_150000" : (old : OldActor__493289942) -> NewActor__486988
 }
 actor  {
   stable artwork :
     {
-      var root : Node__204828119<Nat, Artwork__710630732>;
+      var root : Node__204828119<Nat, Artwork__311224520>;
       var size : Nat__227979830
     };
   stable artworkHashes :
     {var root : Node__204828119<Blob, Blob>; var size : Nat__227979830};
   stable blocks :
     {
-      var root : Node__204828119<Nat, Value__813041303>;
+      var root : Node__204828119<Nat, Value__756415457>;
       var size : Nat__227979830
     };
   stable certStore : {var tree : Tree__761691833};
   stable collectionApprovals :
     {
-      var root : Node__204828119<Principal, [ApprovalRecord__1070464862]>;
+      var root : Node__204828119<Principal, [ApprovalRecord__99589293]>;
       var size : Nat__227979830
     };
   stable counters :
@@ -208,12 +208,12 @@ actor  {
     {var root : Node__204828119<Blob, Blob>; var size : Nat__227979830};
   stable tokenApprovals :
     {
-      var root : Node__204828119<Nat, [ApprovalRecord__1070464862]>;
+      var root : Node__204828119<Nat, [ApprovalRecord__99589293]>;
       var size : Nat__227979830
     };
   stable tokens :
     {
-      var root : Node__204828119<Nat, NftRecord__713796055>;
+      var root : Node__204828119<Nat, NftRecord__1007593653>;
       var size : Nat__227979830
     }
 };

@@ -1,11 +1,13 @@
 // Version: 4.0.0
 type Data__44217153<K, V> = {var count : Nat__227979830; kvs : [var ?(K, V)]};
 type Data__846125122<T> = {var count : Nat__227979830; elements : [var ?T]};
-type Fulfillment__296301273 =
+type Fulfillment__527834283 =
   {#awaiting; #closed; #creating; #minted; #minting; #paid; #review};
-type Fulfillment__713735976 =
+type Fulfillment__594061949 =
   {#awaiting; #closed; #creating; #minted; #minting; #paid; #review};
-type Fulfillment__914791073 =
+type Fulfillment__797707615 =
+  {#awaiting; #closed; #creating; #minted; #minting; #paid; #review};
+type Fulfillment__892338864 =
   {#awaiting; #closed; #creating; #minted; #minting; #paid; #review};
 type Internal__23036296<T> =
   {children : [var ?Node__620761243<T>]; data : Data__846125122<T>};
@@ -17,10 +19,24 @@ type Map__230067015<K, V> = Map__405889023<K, V>;
 type Map__405889023<K, V> = Map__603270868<K, V>;
 type Map__603270868<K, V> =
   {var root : Node__204828119<K, V>; var size : Nat__227979830};
-type Method__553949487 = {#icp; #paw};
+type Method__612329775 = {#icp; #paw; #token};
 type Nat__227979830 = Nat__920180692;
 type Nat__920180692 = Nat;
-type NewActor__338817292 =
+type NewActor__284150510 =
+  {
+    paw :
+      {
+        var apiKey : Text;
+        var asset : Text;
+        var counter : Nat;
+        var cursor : Nat;
+        pending : Set__70493310<Text>;
+        purchases : Map__230067015<Text, Purchase__513802698>;
+        var redirect : Text;
+        var sandbox : Bool
+      }
+  };
+type NewActor__385713542 =
   {
     paw :
       {
@@ -30,26 +46,12 @@ type NewActor__338817292 =
         var cursor : Nat;
         var e8sPerEur : Nat;
         pending : Set__70493310<Text>;
-        purchases : Map__230067015<Text, Purchase__160163758>;
+        purchases : Map__230067015<Text, Purchase__525825638>;
         var redirect : Text;
         var sandbox : Bool
       }
   };
-type NewActor__714108050 =
-  {
-    paw :
-      {
-        var apiKey : Text;
-        var asset : Text;
-        var counter : Nat;
-        var cursor : Nat;
-        pending : Set__70493310<Text>;
-        purchases : Map__230067015<Text, Purchase__438094217>;
-        var redirect : Text;
-        var sandbox : Bool
-      }
-  };
-type NewActor__80268402 =
+type NewActor__604328090 =
   {
     paw :
       {
@@ -59,12 +61,29 @@ type NewActor__80268402 =
         var cursor : Nat;
         var icpPrices : [Nat];
         pending : Set__70493310<Text>;
-        purchases : Map__230067015<Text, NewPurchase__877862909>;
+        purchases : Map__230067015<Text, NewPurchase__501374129>;
         var redirect : Text;
         var sandbox : Bool
       }
   };
-type NewPurchase__877862909 =
+type NewActor__860456320 =
+  {
+    paw :
+      {
+        var apiKey : Text;
+        var asset : Text;
+        var counter : Nat;
+        var cursor : Nat;
+        var icpTiers : [Nat];
+        pending : Set__70493310<Text>;
+        purchases : Map__230067015<Text, NewPurchase__331626814>;
+        var redirect : Text;
+        var sandbox : Bool;
+        var token : ?Token__424138741;
+        var tokenTiers : [Nat]
+      }
+  };
+type NewPurchase__331626814 =
   {
     amountE8s : ?Nat;
     amountEur : Nat;
@@ -73,7 +92,33 @@ type NewPurchase__877862909 =
     caller : Principal;
     checkoutUrl : ?Text;
     createdAt : Int;
-    fulfillment : Fulfillment__914791073;
+    fulfillment : Fulfillment__594061949;
+    id : Text;
+    invoiceId : ?Text;
+    lastError : ?Text;
+    ledgerBlock : ?Nat;
+    lucky : Bool;
+    method : {#icp; #paw; #token};
+    nextCheck : Int;
+    nftId : ?Nat;
+    payTime : ?Nat64;
+    paymentStatus : Text;
+    sandbox : Bool;
+    seed : ?Blob;
+    sequence : Nat;
+    tier : Nat;
+    updatedAt : Int
+  };
+type NewPurchase__501374129 =
+  {
+    amountE8s : ?Nat;
+    amountEur : Nat;
+    artTier : ?Nat;
+    attempts : Nat;
+    caller : Principal;
+    checkoutUrl : ?Text;
+    createdAt : Int;
+    fulfillment : Fulfillment__527834283;
     id : Text;
     invoiceId : ?Text;
     lastError : ?Text;
@@ -94,7 +139,22 @@ type Node__204828119<K, V> =
   {#internal : Internal__283199666<K, V>; #leaf : Leaf__598469445<K, V>};
 type Node__620761243<T> =
   {#internal : Internal__23036296<T>; #leaf : Leaf__948582970<T>};
-type OldActor__724626855 =
+type OldActor__115562095 =
+  {
+    paw :
+      {
+        var apiKey : Text;
+        var asset : Text;
+        var counter : Nat;
+        var cursor : Nat;
+        var e8sPerEur : Nat;
+        pending : Set__70493310<Text>;
+        purchases : Map__230067015<Text, OldPurchase__500627040>;
+        var redirect : Text;
+        var sandbox : Bool
+      }
+  };
+type OldActor__27905617 =
   {
     paw :
       {
@@ -104,13 +164,13 @@ type OldActor__724626855 =
         var cursor : Nat;
         var icpPrices : [Nat];
         pending : Set__70493310<Text>;
-        purchases : Map__230067015<Text, Purchase__160163758>;
+        purchases : Map__230067015<Text, Purchase__525825638>;
         var redirect : Text;
         var sandbox : Bool
       }
   };
-type OldActor__837990462 = {};
-type OldActor__930622310 =
+type OldActor__362651990 = {};
+type OldActor__891444202 =
   {
     paw :
       {
@@ -119,19 +179,19 @@ type OldActor__930622310 =
         var counter : Nat;
         var cursor : Nat;
         pending : Set__70493310<Text>;
-        purchases : Map__230067015<Text, OldPurchase__897739382>;
+        purchases : Map__230067015<Text, OldPurchase__477673375>;
         var redirect : Text;
         var sandbox : Bool
       }
   };
-type OldPurchase__897739382 =
+type OldPurchase__477673375 =
   {
     amountEur : Nat;
     attempts : Nat;
     caller : Principal;
     checkoutUrl : ?Text;
     createdAt : Int;
-    fulfillment : Fulfillment__914791073;
+    fulfillment : Fulfillment__527834283;
     id : Text;
     invoiceId : ?Text;
     lastError : ?Text;
@@ -143,7 +203,7 @@ type OldPurchase__897739382 =
     sequence : Nat;
     updatedAt : Int
   };
-type Purchase__160163758 =
+type OldPurchase__500627040 =
   {
     amountE8s : ?Nat;
     amountEur : Nat;
@@ -152,7 +212,7 @@ type Purchase__160163758 =
     caller : Principal;
     checkoutUrl : ?Text;
     createdAt : Int;
-    fulfillment : Fulfillment__713735976;
+    fulfillment : Fulfillment__594061949;
     id : Text;
     invoiceId : ?Text;
     lastError : ?Text;
@@ -169,7 +229,7 @@ type Purchase__160163758 =
     tier : Nat;
     updatedAt : Int
   };
-type Purchase__438094217 =
+type Purchase__513802698 =
   {
     amountEur : Nat;
     attempts : Nat;
@@ -189,7 +249,7 @@ type Purchase__438094217 =
     sequence : Nat;
     updatedAt : Int
   };
-type Purchase__64476951 =
+type Purchase__525825638 =
   {
     amountE8s : ?Nat;
     amountEur : Nat;
@@ -198,13 +258,39 @@ type Purchase__64476951 =
     caller : Principal;
     checkoutUrl : ?Text;
     createdAt : Int;
-    fulfillment : Fulfillment__296301273;
+    fulfillment : Fulfillment__892338864;
     id : Text;
     invoiceId : ?Text;
     lastError : ?Text;
     ledgerBlock : ?Nat;
     lucky : Bool;
-    method : Method__553949487;
+    method : {#icp; #paw};
+    nextCheck : Int;
+    nftId : ?Nat;
+    payTime : ?Nat64;
+    paymentStatus : Text;
+    sandbox : Bool;
+    seed : ?Blob;
+    sequence : Nat;
+    tier : Nat;
+    updatedAt : Int
+  };
+type Purchase__538656523 =
+  {
+    amountE8s : ?Nat;
+    amountEur : Nat;
+    artTier : ?Nat;
+    attempts : Nat;
+    caller : Principal;
+    checkoutUrl : ?Text;
+    createdAt : Int;
+    fulfillment : Fulfillment__797707615;
+    id : Text;
+    invoiceId : ?Text;
+    lastError : ?Text;
+    ledgerBlock : ?Nat;
+    lucky : Bool;
+    method : Method__612329775;
     nextCheck : Int;
     nftId : ?Nat;
     payTime : ?Nat64;
@@ -218,10 +304,15 @@ type Purchase__64476951 =
 type Set__1053317950<T> =
   {var root : Node__620761243<T>; var size : Nat__227979830};
 type Set__70493310<T> = Set__1053317950<T>;
+type Token__29385507 =
+  {ledger : Principal; market : Principal; symbol : Text};
+type Token__424138741 =
+  {ledger : Principal; market : Principal; symbol : Text};
 {
-  "20261021_134000" : (_old : OldActor__837990462) -> NewActor__714108050;
-  "20261022_150000" : (old : OldActor__930622310) -> NewActor__80268402;
-  "20261022_160000" : (old : OldActor__724626855) -> NewActor__338817292
+  "20261021_134000" : (_old : OldActor__362651990) -> NewActor__284150510;
+  "20261022_150000" : (old : OldActor__891444202) -> NewActor__604328090;
+  "20261022_160000" : (old : OldActor__27905617) -> NewActor__385713542;
+  "20261027_230000" : (old : OldActor__115562095) -> NewActor__860456320
 }
 actor  {
   stable paw :
@@ -230,10 +321,12 @@ actor  {
       var asset : Text;
       var counter : Nat;
       var cursor : Nat;
-      var e8sPerEur : Nat;
+      var icpTiers : [Nat];
       pending : Set__70493310<Text>;
-      purchases : Map__230067015<Text, Purchase__64476951>;
+      purchases : Map__230067015<Text, Purchase__538656523>;
       var redirect : Text;
-      var sandbox : Bool
+      var sandbox : Bool;
+      var token : ?Token__29385507;
+      var tokenTiers : [Nat]
     }
 };
