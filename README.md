@@ -183,6 +183,9 @@ decimals, a 0.0001 fee and a standard ICRC-1/ICRC-2 ledger. Users always sign
 with their own wallet (Internet Identity, Plug or OISY); the app never asks for
 a seed phrase or private key.
 
+Live on mainnet ([token page](https://soonlaunchpad.fun/t/m7ocs-oqaaa-aaaad-qmmrq-cai)):
+market `m7ocs-oqaaa-aaaad-qmmrq-cai`, ledger `mkjt7-pyaaa-aaaad-qmmsa-cai`.
+
 After launching, connect the token with its Soon **market** and **ledger**
 canister IDs (a controller-only call, rejected while token purchases are
 pending):
