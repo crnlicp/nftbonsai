@@ -1,4 +1,4 @@
-// Display metadata for the backend's five named tiers (anchor prices and the ICP rate come from backend `pricing()`).
+// Display metadata for the backend's five named tiers (anchor prices per payment method come from backend `pricing()`).
 interface TierMeta {
   name: string;
   pot: string;
@@ -17,33 +17,30 @@ export const TIERS: TierMeta[] = [
 ];
 
 export const LUCKY_ODDS = "1 in 32";
+// Paying with the token doubles the lucky-bloom odds (mirrors backend Tiers.lucky).
+export const TOKEN_LUCKY_ODDS = "1 in 16";
 
-// A price earns the highest tier whose anchor it reaches (mirrors backend Tiers.tierOf).
-export function tierOf(eur: number, anchors: number[]): number {
+// A price earns the highest tier whose anchor it reaches (mirrors backend Tiers.tierIn).
+export function tierOf(amount: number, anchors: number[]): number {
   let tier = 0;
-  anchors.forEach((anchor, i) => { if (eur >= anchor) tier = i; });
+  anchors.forEach((anchor, i) => { if (amount >= anchor) tier = i; });
   return tier;
-}
-
-// ICP quote in e8s, rounded up to the backend's step (mirrors backend Tiers.icpE8s).
-export function quoteE8s(eur: number, e8sPerEur: bigint, step: bigint): bigint {
-  return (BigInt(eur) * e8sPerEur + step - 1n) / step * step;
 }
 
 // The slider gives each gap between tier anchors an equal share of the track, so cheap tiers stay easy to dial in.
 export const SLIDER_MAX = 1000;
-export function sliderToEur(position: number, anchors: number[]): number {
+export function sliderToAmount(position: number, anchors: number[]): number {
   const gaps = anchors.length - 1;
   const span = SLIDER_MAX / gaps;
   const gap = Math.min(gaps - 1, Math.floor(position / span));
   const t = (position - gap * span) / span;
   return Math.round(anchors[gap] + t * (anchors[gap + 1] - anchors[gap]));
 }
-export function eurToSlider(eur: number, anchors: number[]): number {
+export function amountToSlider(amount: number, anchors: number[]): number {
   const gaps = anchors.length - 1;
   const span = SLIDER_MAX / gaps;
-  const gap = Math.max(0, Math.min(gaps - 1, tierOf(eur, anchors) - (eur >= anchors[gaps] ? 1 : 0)));
-  const t = (eur - anchors[gap]) / (anchors[gap + 1] - anchors[gap]);
+  const gap = Math.max(0, Math.min(gaps - 1, tierOf(amount, anchors) - (amount >= anchors[gaps] ? 1 : 0)));
+  const t = (amount - anchors[gap]) / (anchors[gap + 1] - anchors[gap]);
   return Math.round(gap * span + Math.max(0, Math.min(1, t)) * span);
 }
 

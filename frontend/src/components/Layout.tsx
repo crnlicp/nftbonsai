@@ -18,7 +18,7 @@ export function Layout() {
         <nav className="glass mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-6">
           <NavLink to="/" className="flex items-center gap-2 font-display text-lg font-semibold">
             <img src={logo} alt="" width={32} height={32} className="h-8 w-8 [image-rendering:pixelated]" />
-            <span>NFT Bonsai</span>
+            <span>ICPBonsai</span>
           </NavLink>
           <div className="hidden gap-1 md:flex">
             <NavLink to="/mint" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>
@@ -32,6 +32,9 @@ export function Layout() {
             </NavLink>
             <NavLink to="/wallet" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>
               Wallet
+            </NavLink>
+            <NavLink to="/bonsai" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>
+              $BONSAI
             </NavLink>
             {artLab && (
               <NavLink to="/art-lab" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>
@@ -57,11 +60,12 @@ export function Layout() {
           </div>
         </nav>
         {/* mobile nav */}
-        <div className="mx-auto mt-3 flex max-w-6xl gap-1 md:hidden">
+        <div className="mx-auto mt-3 flex max-w-6xl gap-1 overflow-x-auto whitespace-nowrap md:hidden [&>a]:shrink-0">
           <NavLink to="/mint" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>Mint</NavLink>
           <NavLink to="/my-nfts" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>My bonsai</NavLink>
           <NavLink to="/gallery" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>Gallery</NavLink>
           <NavLink to="/wallet" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>Wallet</NavLink>
+          <NavLink to="/bonsai" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>$BONSAI</NavLink>
           {artLab && <NavLink to="/art-lab" className={({ isActive }) => (isActive ? "nav-link-active" : "nav-link")}>Art lab</NavLink>}
         </div>
       </header>

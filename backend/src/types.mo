@@ -1,4 +1,4 @@
-/// Shared types for the NFT Bonsai backend canister.
+/// Shared types for the ICPBonsai backend canister.
 ///
 /// Public/shared fields use only Candid-serializable types (no `var`, no
 /// non-shared containers). Internal collection state lives in `main.mo`.

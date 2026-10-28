@@ -19,7 +19,7 @@ async function checkLocalAuth(hostname) {
     assert.doesNotMatch(await app.locator("main").innerText(), /Local test identity/);
     const credentials = await signInWithPasskey(app, { name: "Bonsai local auth regression" });
     assert.equal(context.pages().length, 1);
-    const checkout = app.getByRole("button", { name: "Pay €99 by card", exact: true });
+    const checkout = app.getByRole("button", { name: "Pay 19 ICP", exact: true });
     await checkout.waitFor();
     assert.equal(app.url(), new URL("/mint", appOrigin).href);
     const principal = await app.locator("header span[title]").getAttribute("title");

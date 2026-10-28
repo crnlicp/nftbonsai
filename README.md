@@ -1,15 +1,19 @@
-# NFT Bonsai
+# ICPBonsai
 
-Generative **64 x 64 pixel-art bonsai NFTs** on the Internet Computer, purchased
-by card through [PawPayments](https://docs.pawpayments.com/overview) or with
-**ICP** from the app's built-in self-custody wallet. This version starts a fresh enhanced-migration chain and requires a
+Generative **64 x 64 pixel-art bonsai NFTs** on the Internet Computer
+([icpbonsai.app](https://icpbonsai.app)), purchased with **ICP** or the community
+token **$BONSAI** from the app's built-in self-custody wallet, or by card through
+[PawPayments](https://docs.pawpayments.com/overview). The NFT collection is named
+`ICPBonsai` with symbol `ICPBONSAI`. This version starts a fresh enhanced-migration chain and requires a
 **reinstall of pre-chain deployments**. Reinstall deletes all prior purchases,
 NFTs, approvals and history; it is not an upgrade from the old Guardarian app.
 
 ## Purchase and mint flow
 
-1. Sign in with Internet Identity, choose any whole-euro price from EUR 49 to 999
-   (it maps to one of five [named tiers](#tiers-and-pricing)) and pay by card (steps 2-4) or [with ICP](#icp-checkout-and-wallet).
+1. Sign in with Internet Identity, pick a payment method (ICP is the default,
+   then $BONSAI and card), choose any whole-unit price within that method's
+   range (it maps to one of five [named tiers](#tiers-and-pricing)) and pay
+   [with ICP or $BONSAI](#icp-and-bonsai-checkout-and-wallet) or by card (steps 2-4).
 2. The backend saves a purchase intent before creating a non-permanent,
    EUR-denominated **STATIC USDC invoice**, using a non-replicated HTTPS POST.
 3. Open the returned Paw checkout link. Paw advertises **Pay by card** for
@@ -84,26 +88,31 @@ single frozen on-chain SVG, which the app displays directly.
 Tiers are cosmetic and do not affect ownership rights. Every tier is unlimited;
 each tree is still unique.
 
-Buyers choose any whole-euro price from EUR 49 to 999 with the Mint page's
-price slider, tier ticks or exact-amount field. A price maps to the **highest
-tier anchor it reaches**. For example, EUR 150 is Grove and EUR 250 is Jade.
+Each payment method has its own, independent tier ladder. Buyers pick a method
+on the Mint page (ICP, $BONSAI or card; ICP is the default and only the chosen
+method's prices are shown), then choose any whole-unit price from that ladder's
+first anchor up to its top anchor with the price slider, tier ticks or
+exact-amount field. A price maps to the **highest tier anchor it reaches**. For
+example, 30 ICP is Grove and EUR 250 is Jade. Switching method keeps the
+selected tier.
 
-| Tier | From (EUR) | ICP at EUR 2.44/ICP | Primary branches | Canopy | Pot |
-|---|---:|---:|---:|---|---|
-| Sprout | 49 | 20.08 | 3 | airy | terracotta |
-| Grove | 99 | 40.57 | 4 | airy | stone |
-| Jade | 199 | 81.56 | 5 | lush | jade |
-| Lacquer | 499 | 204.51 | 6 | lush | blue lacquer |
-| Imperial | 999 | 409.43 | 7 | dense | gold |
+| Tier | Card (EUR) | ICP | $BONSAI | Primary branches | Canopy | Pot |
+|---|---:|---:|---:|---:|---|---|
+| Sprout | 49 | 9 | 9,000 | 3 | airy | terracotta |
+| Grove | 99 | 19 | 19,000 | 4 | airy | stone |
+| Jade | 199 | 49 | 49,000 | 5 | lush | jade |
+| Lacquer | 499 | 99 | 99,000 | 6 | lush | blue lacquer |
+| Imperial | 999 | 249 | 249,000 | 7 | dense | gold |
 
-Anchors and range are fixed in [Tiers.mo](backend/src/lib/Tiers.mo). The ICP price
-is `price x e8sPerEur`, rounded **up** to 0.0001 ICP. `e8sPerEur` is a
-controller-set rate (`setIcpRate`, default `40_983_606`, which is
-`1e8 / 2.44`), so quoting costs no cycles or outcalls. `pricing()` returns
-anchors, range, rate and rounding step; the frontend mirrors the backend
-rounding exactly. **Lucky bloom:** about 1 in 32 mints
-(`seed[31] < 8`, decided by the frozen on-chain randomness) receive the art of
-the next tier up at no extra cost; Imperial is already the top art tier. The
+ICP and $BONSAI prices are fixed amounts, not conversions from EUR, so quoting
+costs no cycles or outcalls and does not move with market prices. EUR anchors
+are fixed in [Tiers.mo](backend/src/lib/Tiers.mo); the ICP and $BONSAI anchors
+are stored on-chain and a controller can retune them with `setTierPrices`
+(five strictly increasing whole-unit anchors). `pricing()` returns all three
+ladders, their ranges and the configured token. **Lucky bloom:** about 1 in 32
+mints (`seed[31] < 8`, decided by the frozen on-chain randomness) receive the
+art of the next tier up at no extra cost; mints paid with $BONSAI get **double
+the odds** (1 in 16, `seed[31] < 16`). Imperial is already the top art tier. The
 Mint page previews the chosen tier in the Mystery Pot (pot colour, branch count,
 canopy) before purchase.
 
@@ -115,34 +124,40 @@ hashes, bounded occupancy, connected tree pixels, valid attached/tapered trunk
 geometry and all 25 style/tier combinations. It also compares RGB hashes with
 colors reconstructed from the canonical SVG.
 
-## ICP checkout and wallet
+## ICP and $BONSAI checkout and wallet
 
 The **Wallet** page (`/wallet`) shows the signed-in principal's ICP balance on
-the ICP ledger, a receive address (legacy account ID or ICRC principal, with a
+the ICP ledger, a receive address (ICRC principal by default, or legacy account ID, with a
 QR code) and a send form with a review step. Sending to a 64-hex account ID uses
-the legacy `transfer`; sending to a principal uses `icrc1_transfer`. Keys stay
-with Internet Identity; the backend never holds user funds outside a purchase.
+the legacy `transfer`; sending to a principal uses `icrc1_transfer`. Once a
+token is configured, the Wallet also shows the **$BONSAI** balance and an
+ICP/$BONSAI asset switch; $BONSAI is received and sent by principal only
+(ICRC-1). Keys stay with Internet Identity; the backend never holds user funds
+outside a purchase. To pay with $BONSAI, buyers send it to their own principal
+(shown on the Wallet page) from any wallet or the Soon launchpad.
 
-Paying with ICP on the Mint page:
+Paying with ICP or $BONSAI on the Mint page uses the same ICRC-2 flow:
 
-1. The browser calls `icrc2_approve` for the quoted price plus one ledger fee,
-   with a 10-minute expiry, naming the backend as spender.
-2. `buyWithIcp(eur, maxE8s)` refuses to start if the rate changed and the
-   current quote exceeds `maxE8s` (the quote the buyer saw). Otherwise it records
-   the purchase, then pulls the price with
+1. The browser calls `icrc2_approve` on the method's ledger for the price plus
+   one ledger fee, with a 10-minute expiry, naming the backend as spender.
+2. `buyWithIcp(icp)` or `buyWithToken(tokens)` (whole units, within the
+   method's range) records the purchase, then pulls the price with
    `icrc2_transfer_from` into the backend's default account. The ledger dedupes
    the pull by memo/created-at time, so retries cannot double-charge.
 3. Once collected, the purchase follows the same seeded, idempotent mint path as
    card purchases. A ledger outage is retried with backoff; an insufficient
    allowance or balance closes the purchase without charging.
 
-The customer pays the price plus two ledger fees (approve + pull). The ICP
-ledger ID comes from the backend env var `ICP_LEDGER_ID` (default: mainnet
-`ryjl3-tyaaa-aaaaa-aaaba-cai`, which the local network also provides).
+The customer pays the price plus two ledger fees (approve + pull; 0.0001 ICP or
+0.0001 $BONSAI each). The ICP ledger ID comes from the backend env var
+`ICP_LEDGER_ID` (default: mainnet `ryjl3-tyaaa-aaaaa-aaaba-cai`, which the local
+network also provides). The $BONSAI ledger is set on-chain with `setToken`;
+until then `buyWithToken` returns "Token payments are not enabled yet" and the
+Mint page shows the $BONSAI option as "soon".
 
 Balances are read with `icrc1_balance_of` **queries** sent straight from the
-browser to the ICP ledger. These calls cost this app's canisters no cycles. The
-Wallet and Mint pages refresh the balance every 30 s, right after a send or ICP
+browser to the ledgers. These calls cost this app's canisters no cycles. The
+Wallet and Mint pages refresh the balance every 30 s, right after a send or
 purchase, and when the tab becomes visible again. Polling pauses while the tab
 is hidden. Mint polls purchases every 4 s only while one is in progress
 (otherwise every 30 s) and reads `paymentInfo` once.
@@ -150,11 +165,64 @@ is hidden. Mint polls purchases every 4 s only while one is in progress
 Controller operations:
 
 ```bash
-# ICP rate in e8s per EUR = round(1e8 / EUR-per-ICP); e.g. ICP at EUR 3.00 -> 33_333_333
-npm exec -- icp canister call backend setIcpRate '(33_333_333 : nat)' -e ic
-# Withdraw collected ICP (amount in e8s; the ledger fee is deducted from the backend's balance)
+# Retune the ICP or $BONSAI ladder (five strictly increasing whole-unit anchors; card/EUR is fixed)
+npm exec -- icp canister call backend setTierPrices '(variant { icp }, vec { 9; 19; 49; 99; 249 })' -e ic
+npm exec -- icp canister call backend setTierPrices '(variant { token }, vec { 9000; 19000; 49000; 99000; 249000 })' -e ic
+# Withdraw collected ICP or $BONSAI (amount in e8s; the ledger fee is deducted from the backend's balance)
 npm exec -- icp canister call backend withdrawIcp '(record { owner = principal "<treasury>"; subaccount = null }, 100_000_000)' -e ic
+npm exec -- icp canister call backend withdrawToken '(record { owner = principal "<treasury>"; subaccount = null }, 100_000_000_000)' -e ic
 ```
+
+### $BONSAI token (built on Soon)
+
+$BONSAI is a proof-of-work token launched on
+[Soon](https://soonlaunchpad.fun) (see its [build guide](https://soonlaunchpad.fun/build.txt)).
+ICPBonsai is **built on Soon and not affiliated with it**; nothing in the app
+is a promise of price, value or returns. Soon tokens have a 1B supply, 8
+decimals, a 0.0001 fee and a standard ICRC-1/ICRC-2 ledger. Users always sign
+with their own wallet (Internet Identity, Plug or OISY); the app never asks for
+a seed phrase or private key.
+
+After launching, connect the token with its Soon **market** and **ledger**
+canister IDs (a controller-only call, rejected while token purchases are
+pending):
+
+```bash
+npm exec -- icp canister call backend setToken '(opt record { ledger = principal "<ledger>"; market = principal "<market>"; symbol = "BONSAI" })' -e ic
+# Disable token payments again
+npm exec -- icp canister call backend setToken '(null)' -e ic
+```
+
+The Mint and Wallet pages then link to the token page
+(`https://soonlaunchpad.fun/t/<market>`) for buying $BONSAI. The CSP
+(`frontend/public/_headers`) allows images from `https://*.raw.icp0.io` for
+the Soon logo (`https://<market>.raw.icp0.io/logo`).
+
+The **$BONSAI page** (`/bonsai`, `frontend/src/pages/Bonsai.tsx`) shows the
+token's market with free public queries (`frontend/src/lib/soonApi.ts`). Soon
+is mainnet-only, so these reads always go to `https://icp-api.io`, even on a
+local deploy. The page shows:
+
+- price in the base token and USD (`market.info`, `factory.prices`);
+- curve progress, raised, volume, traders and mined share;
+- a 7-day hourly price chart (`market.candles`);
+- latest trades, with display names from `factory.names`;
+- top miners (`market.miners`);
+- Soon's automated milestone posts from `social.thread`. User discussion is
+  not embedded; the page links to Soon for it.
+
+ICPBonsai's own numbers come from the backend `tokenStats()` query: bonsai
+minted with the token, $BONSAI collected, and distinct buyers. Before
+`setToken` the page shows a "coming soon" card. If Soon can't be reached, the
+page still shows ICPBonsai's own stats and links to Soon instead.
+
+Suggested Soon token description:
+
+> $BONSAI: the community token of ICPBonsai (https://icpbonsai.app), a
+> collection of generative, fully on-chain bonsai NFTs on the Internet Computer.
+> Spend $BONSAI to mint your own bonsai at icpbonsai.app, with double the
+> lucky-bloom odds. Built on Soon. ICPBonsai is not affiliated with Soon. No
+> promises of price or returns.
 
 ## Canonical images and certification
 
@@ -438,6 +506,21 @@ and the sandbox configuration described below. Merely setting an API key does
 not override mock mode. Mock mode is read when the backend actor initializes;
 changing a running canister setting alone does not switch the active actor.
 
+**Local test $BONSAI token:** to try $BONSAI payments locally, install the
+project's mock ICRC-1/ICRC-2 ledger (0.0001 fee; its `mint` is open, so use it
+locally only) and connect it. The market canister is an empty placeholder that
+only feeds the Soon links/logo:
+
+```bash
+npm exec mops build mock-ledger
+LEDGER=$(npm exec -- icp canister create --detached -e local -q)
+MARKET=$(npm exec -- icp canister create --detached -e local -q)
+npm exec -- icp canister install $LEDGER --wasm .mops/.build/mock-ledger.wasm -e local
+npm exec -- icp canister call backend setToken "(opt record { ledger = principal \"$LEDGER\"; market = principal \"$MARKET\"; symbol = \"BONSAI\" })" -e local
+# Credit test tokens (e8s; 300_000 BONSAI here) to the principal shown on the Wallet page
+npm exec -- icp canister call $LEDGER mint '(principal "<your-principal>", 30_000_000_000_000 : nat)' -e local --candid .mops/.build/mock-ledger.did
+```
+
 ### 3. Mainnet identity and funding
 
 Before proceeding, finish Paw merchant/domain approval and obtain a live key.
@@ -509,6 +592,14 @@ Open `https://<frontend-id>.icp.net` using the printed frontend ID. Mainnet
 uses `https://id.ai` authentication. Before configuring Paw, expect
 `mock = false` and `configured = false`; purchase creation must report that
 Paw is not configured, rather than minting for free.
+
+Upgrading an existing deployment to the three-ladder pricing (ICP and
+$BONSAI) runs migration `20261027_230000`, which keeps all purchases and NFTs,
+drops the old EUR-to-ICP rate and seeds the default ICP/$BONSAI ladders. Its
+Candid interface is intentionally breaking (`buyWithIcp` takes only the whole
+ICP amount; `setIcpRate` is gone), so `icp deploy` asks for `--yes`; deploy
+backend and frontend together. Afterwards refresh the stable baseline in
+`backend/deployed/reinstall/` and call `setToken` once $BONSAI is live.
 
 ### 5. Configure the Paw key after deployment
 

@@ -81,7 +81,7 @@ module {
       ("underpay_tolerance", Json.int(0)),
       ("permanent_address", Json.bool(false)),
       ("extra", Json.str(intent)),
-      ("title", Json.str("NFT Bonsai")),
+      ("title", Json.str("ICPBonsai")),
       ("on_paid_url", if (redirect == "") Json.nullable() else Json.str(redirect # "/mint")),
       ("on_cancel_url", if (redirect == "") Json.nullable() else Json.str(redirect # "/mint")),
     ]), null);

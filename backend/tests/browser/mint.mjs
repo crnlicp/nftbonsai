@@ -14,6 +14,9 @@ test("a freshly minted bonsai grows once on the Mint page; past mints stay stati
     app.on("pageerror", (error) => errors.push(error.message));
     await app.goto(new URL("/mint", origin).href);
     await signInWithPasskey(app, { name: "Bonsai mint growth regression" });
+    // ICP is the default method; switching to card keeps the Grove tier (19 ICP -> €99).
+    await app.getByRole("button", { name: "Pay 19 ICP", exact: true }).waitFor();
+    await app.getByTestId("pay-card").click();
     await app.getByRole("button", { name: "Pay €99 by card", exact: true }).click();
 
     const tree = app.locator(".growing-bonsai");
@@ -72,7 +75,7 @@ test("a freshly minted bonsai grows once on the Mint page; past mints stay stati
     await purchase.waitFor();
     await app.waitForTimeout(5000);
     assert.equal(await heading.count(), 0, "the last minted bonsai is not the default view");
-    assert.equal(await app.getByRole("button", { name: "Pay €99 by card", exact: true }).count(), 1);
+    assert.equal(await app.getByRole("button", { name: "Pay 19 ICP", exact: true }).count(), 1, "ICP is the default after reload");
     await purchase.click();
     await heading.waitFor();
     await app.locator("main img[src$='.svg']").first().waitFor();

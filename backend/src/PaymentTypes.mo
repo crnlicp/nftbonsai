@@ -11,7 +11,9 @@ module {
     };
   };
   public type Fulfillment = { #creating; #awaiting; #paid; #minting; #minted; #review; #closed };
-  public type Method = { #paw; #icp };
+  public type Method = { #paw; #icp; #token };
+  // A Soon-launched ICRC-1/ICRC-2 token (8 decimals) accepted as payment, set by controllers after launch.
+  public type Token = { ledger : Principal; market : Principal; symbol : Text };
   public type Purchase = {
     id : Text;
     tier : Nat;
@@ -31,7 +33,8 @@ module {
     attempts : Nat;
     lastError : ?Text;
     sandbox : Bool;
-    // ICP checkout: price pulled via ICRC-2, its ledger block, and the fixed created_at_time used for dedup on retries.
+    // Ledger checkout (ICP or token, both 8 decimals): amount pulled via ICRC-2, its ledger block,
+    // and the fixed created_at_time used for dedup on retries.
     amountE8s : ?Nat;
     ledgerBlock : ?Nat;
     payTime : ?Nat64;
@@ -48,8 +51,10 @@ module {
     var asset : Text;
     var redirect : Text;
     var sandbox : Bool;
-    // ICP quote rate: e8s charged per euro of the chosen price. Controllers update it with setIcpRate.
-    var e8sPerEur : Nat;
+    // Tier anchors in whole ICP / whole tokens; any whole amount between the first and last is valid.
+    var icpTiers : [Nat];
+    var tokenTiers : [Nat];
+    var token : ?Token;
   };
   public type Account = { owner : Principal; subaccount : ?Blob };
   public type TransferFromError = {

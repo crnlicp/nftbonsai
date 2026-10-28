@@ -1,12 +1,12 @@
 {
-  "name": "nftbonsai",
+  "name": "icpbonsai",
   "private": true,
   "type": "module",
   "scripts": {
     "check": "mops check",
     "build": "mops build",
     "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "mops test Paw && mops test Art --mode wasi",
+    "test:unit": "mops test Paw && mops test Tiers && mops test Art --mode wasi",
     "samples:landing": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/landing-samples.mjs",
     "test:auth:local": "node --test tests/browser/local-auth.mjs",
     "test:browser:local": "node --test --test-concurrency=1 tests/browser/landing.mjs tests/browser/mint.mjs tests/browser/wallet.mjs",

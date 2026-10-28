@@ -10,14 +10,27 @@ import { bonsaiDescription } from "../lib/render";
 import type { NftPublic, Purchase } from "../lib/idl";
 import { Method, type PaymentError } from "../bindings/backend";
 import { canisterEnv } from "../lib/env";
-import { ICP_FEE, approveIcp, balanceOf, formatIcp, ledgerMessage } from "../lib/ledger";
-import { LUCKY_ODDS, quoteE8s, tierName, tierOf } from "../lib/tiers";
-import { PricePicker } from "../components/PricePicker";
+import { ICP_FEE, TOKEN_FEE, approveIcp, approveToken, balanceOf, formatIcp, ledgerMessage, tokenBalance, tokenMessage } from "../lib/ledger";
+import { LUCKY_ODDS, TOKEN_LUCKY_ODDS, tierName, tierOf } from "../lib/tiers";
+import { PricePicker, formatAmount, type PriceUnit } from "../components/PricePicker";
 import { BALANCE_POLL_MS, startPolling } from "../lib/polling";
 import { Principal } from "@icp-sdk/core/principal";
+import { soonLogoUrl, soonTokenUrl } from "../lib/soon";
 
-type Pricing = { tiers: { name: string; eur: bigint }[]; minEur: bigint; maxEur: bigint; e8sPerEur: bigint; e8sStep: bigint };
-type PayWith = "card" | "icp";
+type Pricing = Awaited<ReturnType<Awaited<ReturnType<typeof backendActor>>["pricing"]>>;
+type PayWith = "icp" | "token" | "card";
+const E8S = 100_000_000n;
+const DEFAULT_SYMBOL = "BONSAI";
+
+
+function anchorsFor(pricing: Pricing, method: PayWith): number[] {
+  return pricing.tiers.map((t) => Number(method === "icp" ? t.icp : method === "token" ? t.token : t.eur));
+}
+function unitFor(method: PayWith, symbol: string): PriceUnit {
+  if (method === "card") return { code: "EUR", prefix: "€", step: 1 };
+  if (method === "token") return { code: symbol, step: 100 };
+  return { code: "ICP", step: 1 };
+}
 
 function paymentMessage(error: PaymentError): string {
   switch (error.__kind__) {
@@ -29,10 +42,16 @@ function paymentMessage(error: PaymentError): string {
 function message(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
-function label(p: Purchase): string {
+function unitOf(p: Purchase, symbol: string): string {
+  return p.method === Method.token ? symbol : "ICP";
+}
+function amountOf(p: Purchase, symbol: string): string {
+  return p.method !== Method.paw && p.amountE8s !== undefined ? `${formatIcp(p.amountE8s)} ${unitOf(p, symbol)}` : `€${p.amountEur.toString()}`;
+}
+function label(p: Purchase, symbol: string): string {
   if (p.fulfillment === "minted") return p.lucky ? "Minted · lucky bloom" : "Minted";
-  if (p.method === Method.icp && p.fulfillment === "closed") return "ICP payment failed";
-  if (p.method === Method.icp && p.fulfillment === "awaiting") return "Collecting ICP payment";
+  if (p.method !== Method.paw && p.fulfillment === "closed") return `${unitOf(p, symbol)} payment failed`;
+  if (p.method !== Method.paw && p.fulfillment === "awaiting") return `Collecting ${unitOf(p, symbol)} payment`;
   if (p.fulfillment === "minting") return "Payment received - minting";
   if (p.fulfillment === "paid") return "Payment received - NFT pending";
   if (p.fulfillment === "review") return "Reconciliation required";
@@ -56,12 +75,12 @@ const inProgress = (p: Purchase) => p.nftId === undefined && p.fulfillment !== "
 
 export function Mint() {
   const { isAuthenticated, isLoading, signIn, identity, error: authError } = useAuthContext();
-  const [eur, setEur] = useState(99);
-  const [payWith, setPayWith] = useState<PayWith>("card");
+  const [amount, setAmount] = useState<number>();
+  const [payWith, setPayWith] = useState<PayWith>("icp");
   const [pricing, setPricing] = useState<Pricing>();
   const [balanceTick, setBalanceTick] = useState(0);
   const [cardReady, setCardReady] = useState(true);
-  const [icpBalance, setIcpBalance] = useState<bigint>();
+  const [walletBalance, setWalletBalance] = useState<bigint>();
   const [stage, setStage] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -121,24 +140,44 @@ export function Mint() {
 
   useEffect(() => {
     let cancelled = false;
-    void backendActor(identity).then((a) => a.pricing()).then((p) => { if (!cancelled) setPricing(p); })
+    void backendActor(identity).then((a) => a.pricing()).then((p) => {
+      if (cancelled) return;
+      setPricing(p);
+      // Start on the Grove tier in the default unit; later reloads keep the buyer's choice.
+      setAmount((current) => current ?? anchorsFor(p, "icp")[1]);
+    })
       .catch((e: unknown) => { if (!cancelled) setError(`Could not load prices: ${message(e)}`); });
     return () => { cancelled = true; };
   }, [identity]);
 
-  useEffect(() => { if (!cardReady) setPayWith("icp"); }, [cardReady]);
+  const token = pricing?.token;
+  const symbol = token?.symbol ?? DEFAULT_SYMBOL;
+  const tokenLedger = token?.ledger.toText();
+  const market = token?.market.toText();
+
+  // Switching method keeps the chosen tier and jumps to its anchor in the new unit.
+  function choose(method: PayWith) {
+    if (method === payWith) return;
+    if (pricing && amount !== undefined) {
+      const tier = tierOf(amount, anchorsFor(pricing, payWith));
+      setAmount(anchorsFor(pricing, method)[tier]);
+    }
+    setPayWith(method);
+  }
+  useEffect(() => { if (!cardReady && payWith === "card") choose("icp"); }, [cardReady]);
+  useEffect(() => { if (pricing && !token && payWith === "token") choose("icp"); }, [pricing, token]);
 
   useEffect(() => {
-    setIcpBalance(undefined);
-    if (!identity || payWith !== "icp") return;
+    setWalletBalance(undefined);
+    if (!identity || payWith === "card" || (payWith === "token" && !tokenLedger)) return;
     let cancelled = false;
     const stop = startPolling(async () => {
-      const b = await balanceOf(identity);
-      if (!cancelled) setIcpBalance(b);
+      const b = payWith === "icp" ? await balanceOf(identity) : await tokenBalance(identity, Principal.fromText(tokenLedger!));
+      if (!cancelled) setWalletBalance(b);
       return BALANCE_POLL_MS;
     });
     return () => { cancelled = true; stop(); };
-  }, [identity, payWith, balanceTick]);
+  }, [identity, payWith, balanceTick, tokenLedger]);
 
   useEffect(() => {
     setMinted(null);
@@ -161,26 +200,35 @@ export function Mint() {
     return () => { cancelled = true; };
   }, [record?.nftId, record?.id, growingId, identity, lookupAttempt]);
 
-  const anchors = pricing?.tiers.map((t) => Number(t.eur)) ?? [];
-  const tier = pricing ? tierOf(eur, anchors) : 1;
-  const quote = pricing ? quoteE8s(eur, pricing.e8sPerEur, pricing.e8sStep) : undefined;
-  const icpNeeded = quote !== undefined ? quote + 2n * ICP_FEE : undefined;
-  const lowBalance = payWith === "icp" && icpBalance !== undefined && icpNeeded !== undefined && icpBalance < icpNeeded;
+  const anchors = pricing ? anchorsFor(pricing, payWith) : [];
+  const unit = unitFor(payWith, symbol);
+  const tier = pricing && amount !== undefined ? tierOf(amount, anchors) : 1;
+  const fee = payWith === "token" ? TOKEN_FEE : ICP_FEE;
+  const e8s = amount !== undefined ? BigInt(amount) * E8S : undefined;
+  const needed = e8s !== undefined ? e8s + 2n * fee : undefined;
+  const lowBalance = payWith !== "card" && walletBalance !== undefined && needed !== undefined && walletBalance < needed;
+  const ready = pricing !== undefined && amount !== undefined;
 
   async function create() {
-    if (!identity || quote === undefined) return;
+    if (!identity || amount === undefined || e8s === undefined) return;
     setBusy(true);
     setError(undefined);
     try {
       const actor = await backendActor(identity);
+      const backend = Principal.fromText(canisterEnv()["PUBLIC_CANISTER_ID:backend"]!);
       if (payWith === "icp") {
         setStage("Approving ICP…");
-        try {
-          await approveIcp(identity, Principal.fromText(canisterEnv()["PUBLIC_CANISTER_ID:backend"]!), quote + ICP_FEE);
-        } catch (e) { throw new Error(ledgerMessage(e)); }
+        try { await approveIcp(identity, backend, e8s + ICP_FEE); } catch (e) { throw new Error(ledgerMessage(e)); }
+        setStage("Paying and planting…");
+      } else if (payWith === "token") {
+        if (!tokenLedger) throw new Error(`${symbol} payments are not enabled yet`);
+        setStage(`Approving ${symbol}…`);
+        try { await approveToken(identity, Principal.fromText(tokenLedger), backend, e8s + TOKEN_FEE); } catch (e) { throw new Error(tokenMessage(e, symbol)); }
         setStage("Paying and planting…");
       }
-      const result = payWith === "icp" ? await actor.buyWithIcp(BigInt(eur), quote) : await actor.createPurchase(BigInt(eur));
+      const result = payWith === "icp" ? await actor.buyWithIcp(BigInt(amount))
+        : payWith === "token" ? await actor.buyWithToken(BigInt(amount))
+        : await actor.createPurchase(BigInt(amount));
       if (result.__kind__ === "err") {
         const saved = await actor.getMyPurchases();
         setPurchases(saved);
@@ -199,7 +247,7 @@ export function Mint() {
     finally {
       setBusy(false);
       setStage(undefined);
-      if (payWith === "icp") setBalanceTick((n) => n + 1);
+      if (payWith !== "card") setBalanceTick((n) => n + 1);
     }
   }
 
@@ -246,33 +294,55 @@ export function Mint() {
         <div className="glass p-6">
           <h1 className="font-display text-2xl">Mint your bonsai</h1>
           <p className="my-3 text-sm text-slate-300">{mode}</p>
-          {pricing
-            ? <PricePicker anchors={anchors} value={eur} onChange={setEur} disabled={busy}
-                icpLabel={quote !== undefined ? formatIcp(quote) : undefined} />
-            : <p className="text-sm text-slate-400">Loading prices…</p>}
-          <p className="mt-2 text-xs text-slate-400">{LUCKY_ODDS} bonsai bloom one tier higher.</p>
-          <div className="my-4 grid grid-cols-2 gap-1" role="tablist" aria-label="Payment method">
-            <button role="tab" aria-selected={payWith === "card"} disabled={!cardReady}
-              className={payWith === "card" ? "nav-link-active justify-center" : "nav-link justify-center"} onClick={() => setPayWith("card")}>Card</button>
-            <button role="tab" aria-selected={payWith === "icp"}
-              className={payWith === "icp" ? "nav-link-active justify-center" : "nav-link justify-center"} onClick={() => setPayWith("icp")}>ICP</button>
+          <div className="mb-5 grid grid-cols-3 gap-1 rounded-2xl bg-white/5 p-1" role="radiogroup" aria-label="Pay with">
+            {([
+              { id: "icp", title: "ICP", note: "wallet", enabled: true },
+              { id: "token", title: `$${symbol}`, note: token ? "2× luck" : "soon", enabled: !!token },
+              { id: "card", title: "Card", note: "via Paw", enabled: cardReady },
+            ] as const).map((o) => (
+              <button key={o.id} type="button" role="radio" aria-checked={payWith === o.id} disabled={!o.enabled || busy}
+                data-testid={`pay-${o.id}`} onClick={() => choose(o.id)}
+                className={`rounded-xl px-2 py-2 text-center transition disabled:cursor-not-allowed disabled:opacity-40 ${payWith === o.id
+                  ? "bg-white/15 text-slate-50 shadow-inner ring-1 ring-white/25" : "text-slate-300 hover:bg-white/10"}`}>
+                <span className="flex items-center justify-center gap-1.5 font-semibold">
+                  {o.id === "icp" && <span aria-hidden className="grid h-4 w-4 place-items-center rounded-full bg-white"><img src="/icp-logo.svg" alt="" className="w-[70%]" /></span>}
+                  {o.id === "token" && market && <img src={soonLogoUrl(market)} alt="" className="h-4 w-4 rounded-full" onError={(e) => { e.currentTarget.hidden = true; }} />}
+                  {o.title}
+                </span>
+                <span className={`block text-[11px] ${o.id === "token" && token ? "text-amber-200" : "text-slate-400"}`}>{o.note}</span>
+              </button>
+            ))}
           </div>
-          {payWith === "icp" && <p className="mb-3 text-sm text-slate-300">
-            Wallet: {icpBalance === undefined ? "…" : `${formatIcp(icpBalance)} ICP`}
-            {lowBalance && <> · <a href="/wallet" className="underline">top up</a></>}
+          {ready
+            ? <PricePicker key={payWith} anchors={anchors} value={amount} onChange={setAmount} unit={unit} disabled={busy} />
+            : <p className="text-sm text-slate-400">Loading prices…</p>}
+          <p className="mt-2 text-xs text-slate-400">
+            {payWith === "token" ? <><span className="text-amber-200">{TOKEN_LUCKY_ODDS}</span> bonsai paid in ${symbol} bloom one tier higher (double luck).</>
+              : <>{LUCKY_ODDS} bonsai bloom one tier higher.</>}
+          </p>
+          {payWith !== "card" && <p className="my-3 text-sm text-slate-300" data-testid="wallet-balance">
+            Wallet: {walletBalance === undefined ? "…" : `${formatIcp(walletBalance)} ${payWith === "token" ? symbol : "ICP"}`}
+            {lowBalance && (payWith === "token" && market
+              ? <> · <a href={soonTokenUrl(market)} target="_blank" rel="noopener noreferrer" className="underline">get ${symbol} on Soon ↗</a></>
+              : <> · <a href="/wallet" className="underline">top up</a></>)}
           </p>}
-          <button disabled={busy || quote === undefined || lowBalance || (payWith === "card" && !cardReady)} onClick={create} className="btn-primary w-full justify-center">
-            {busy ? (stage ?? "Working…") : quote === undefined ? "Loading…" : payWith === "icp"
-              ? `Pay ${formatIcp(quote)} ICP` : `Pay €${eur} by card`}
+          <button disabled={busy || !ready || lowBalance || (payWith === "card" && !cardReady) || (payWith === "token" && !token)} onClick={create}
+            className={`btn-primary w-full justify-center ${payWith === "card" ? "mt-4" : ""}`}>
+            {busy ? (stage ?? "Working…") : !ready ? "Loading…" : payWith === "card"
+              ? `Pay ${formatAmount(amount, unit)} by card` : `Pay ${formatAmount(amount, unit)}`}
           </button>
           {payWith === "card" && <p className="mt-3 text-xs text-slate-400">Card via PawPayments (USDC checkout). Card fees extra.</p>}
           {payWith === "icp" && <p className="mt-3 text-xs text-slate-400">Approve + payment fees {formatIcp(2n * ICP_FEE, 8)} ICP.</p>}
+          {payWith === "token" && <p className="mt-3 text-xs text-slate-400">
+            Approve + payment fees {formatIcp(2n * TOKEN_FEE, 8)} {symbol}. ${symbol} is a community token built on Soon
+            {market && <> (<a href={soonTokenUrl(market)} target="_blank" rel="noopener noreferrer" className="underline">trade on Soon ↗</a>)</>};
+            ICPBonsai is not affiliated with Soon. Token prices move; nothing here is a promise of value.
+          </p>}
           {error && <p role="alert" className="mt-4 text-sm text-red-200">{error}</p>}
         </div>
         {record && <div className="glass space-y-3 p-5">
-          <h2 className="font-semibold" aria-live="polite">{label(record)}</h2>
-          <p className="text-sm">{record.id} · {tierName(record.tier)} · {record.method === Method.icp && record.amountE8s !== undefined
-            ? `${formatIcp(record.amountE8s)} ICP` : `€${record.amountEur.toString()}`}</p>
+          <h2 className="font-semibold" aria-live="polite">{label(record, symbol)}</h2>
+          <p className="text-sm">{record.id} · {tierName(record.tier)} · {amountOf(record, symbol)}</p>
           {record.lastError && <p role="alert" className="text-sm text-amber-200">{record.lastError}</p>}
           {record.checkoutUrl && record.fulfillment !== "minted" && record.fulfillment !== "closed" &&
             <a href={record.checkoutUrl} target="_blank" rel="noopener noreferrer" className="btn-primary justify-center">Open / reopen secure checkout</a>}
@@ -280,12 +350,12 @@ export function Mint() {
             <button onClick={refresh} disabled={busy} className="btn-ghost">Check status / retry fulfillment</button>}
           {record.nftId !== undefined && !minted &&
             <button onClick={() => setLookupAttempt((n) => n + 1)} className="btn-ghost">Retry NFT lookup</button>}
-          {record.method !== Method.icp && <p className="text-xs text-slate-400">You can safely leave this page. Do not pay a second invoice to retry minting.</p>}
+          {record.method === Method.paw && <p className="text-xs text-slate-400">You can safely leave this page. Do not pay a second invoice to retry minting.</p>}
         </div>}
         {purchases.length > 0 && <div className="glass p-5">
           <h2 className="mb-2 font-semibold">Your purchases</h2>
           <ul className="max-h-72 space-y-2 overflow-auto">{purchases.map((p) =>
-            <li key={p.id}><button data-purchase-id={p.id} onClick={() => { setSelected(p.id); setGrowingId(null); }} className="text-left text-sm underline">{tierName(p.tier)} · {label(p)}</button></li>)}</ul>
+            <li key={p.id}><button data-purchase-id={p.id} onClick={() => { setSelected(p.id); setGrowingId(null); }} className="text-left text-sm underline">{tierName(p.tier)} · {label(p, symbol)}</button></li>)}</ul>
         </div>}
       </section>
     </div>

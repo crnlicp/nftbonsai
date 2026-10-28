@@ -277,8 +277,8 @@ mixin (
   // ICRC-7 standard reads
   // ---------------------------------------------------------------------------
 
-  public query func icrc7_name() : async Text { "NFT Bonsai" };
-  public query func icrc7_symbol() : async Text { "BONSAI" };
+  public query func icrc7_name() : async Text { "ICPBonsai" };
+  public query func icrc7_symbol() : async Text { "ICPBONSAI" };
   public query func icrc7_description() : async ?Text {
     ?"Generative pixel-art bonsai NFTs minted on the Internet Computer.";
   };
@@ -304,8 +304,8 @@ mixin (
 
   public query func icrc7_collection_metadata() : async [(Text, Value)] {
     [
-      ("icrc7:name", #Text "NFT Bonsai"),
-      ("icrc7:symbol", #Text "BONSAI"),
+      ("icrc7:name", #Text "ICPBonsai"),
+      ("icrc7:symbol", #Text "ICPBONSAI"),
       ("icrc7:description", #Text "Generative pixel-art bonsai NFTs minted on the Internet Computer."),
       ("icrc7:total_supply", #Nat(counters.nextId)),
     ];

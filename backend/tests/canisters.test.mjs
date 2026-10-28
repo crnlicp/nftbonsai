@@ -44,7 +44,7 @@ const ledgerIdl = ({ IDL }) => IDL.Service({
   })], [IDL.Variant({ Ok: IDL.Nat, Err: IDL.Reserved })], []),
 });
 
-async function fixture({ mock = false, gateway = false, ledger = false } = {}) {
+async function fixture({ mock = false, gateway = false, ledger = false, token = false } = {}) {
   const pic = await PocketIc.create(server.getUrl(), gateway ? {
     nns: { state: { type: SubnetStateType.New } },
     application: [{ state: { type: SubnetStateType.New } }],
@@ -54,6 +54,11 @@ async function fixture({ mock = false, gateway = false, ledger = false } = {}) {
   if (ledger) {
     ledgerId = await pic.createCanister({ sender: owner, controllers: [owner], cycles: 10_000_000_000_000n });
     await pic.installCode({ sender: owner, canisterId: ledgerId, wasm: wasm("mock-ledger"), arg: emptyArgs });
+  }
+  let tokenId;
+  if (token) {
+    tokenId = await pic.createCanister({ sender: owner, controllers: [owner], cycles: 10_000_000_000_000n });
+    await pic.installCode({ sender: owner, canisterId: tokenId, wasm: wasm("mock-ledger"), arg: emptyArgs });
   }
   const backendId = await pic.createCanister({
     sender: owner, controllers: [owner], cycles: 10_000_000_000_000n,
@@ -77,7 +82,9 @@ async function fixture({ mock = false, gateway = false, ledger = false } = {}) {
   nft.setPrincipal(owner);
   const icp = ledgerId ? pic.createActor(ledgerIdl, ledgerId) : undefined;
   icp?.setPrincipal(owner);
-  return { pic, nft, backend, deferred, nftId, backendId, icp, ledgerId };
+  const tok = tokenId ? pic.createActor(ledgerIdl, tokenId) : undefined;
+  tok?.setPrincipal(owner);
+  return { pic, nft, backend, deferred, nftId, backendId, icp, ledgerId, tok, tokenId };
 }
 
 async function setBackend(f, principal) {
@@ -106,24 +113,33 @@ test("runtime wiring and controller authorization change without an upgrade", as
 });
 
 const account = (owner) => ({ owner, subaccount: [] });
-async function approve(f, who, amount) {
-  f.icp.setPrincipal(who);
-  const r = await f.icp.icrc2_approve({ spender: account(f.backendId), amount, from_subaccount: [], expected_allowance: [], expires_at: [], fee: [], memo: [], created_at_time: [] });
+async function approve(f, who, amount, ledger = f.icp) {
+  ledger.setPrincipal(who);
+  const r = await ledger.icrc2_approve({ spender: account(f.backendId), amount, from_subaccount: [], expected_allowance: [], expires_at: [], fee: [], memo: [], created_at_time: [] });
   assert.ok("Ok" in r);
 }
 
-const quote = (eur, rate) => (eur * rate + 9_999n) / 10_000n * 10_000n;
+const E8S = 100_000_000n;
+const json = (v) => JSON.stringify(v, (_, x) => typeof x === "bigint" ? x.toString() : x);
 
-test("pricing is public; any euro price in range maps to a tier; only controllers set the ICP rate and withdraw", async () => {
+test("pricing is public; any amount in range maps to a tier; only controllers set tiers, the token and withdraw", async () => {
   const f = await fixture({ mock: true, ledger: true });
   try {
     const pricing = await f.backend.pricing();
     assert.deepEqual(pricing.tiers.map((t) => t.name), ["Sprout", "Grove", "Jade", "Lacquer", "Imperial"]);
     assert.deepEqual(pricing.tiers.map((t) => t.eur), [49n, 99n, 199n, 499n, 999n]);
-    assert.deepEqual([pricing.minEur, pricing.maxEur, pricing.e8sPerEur, pricing.e8sStep], [49n, 999n, 40_983_606n, 10_000n]);
+    assert.deepEqual(pricing.tiers.map((t) => t.icp), [9n, 19n, 49n, 99n, 249n]);
+    assert.deepEqual(pricing.tiers.map((t) => t.token), [9_000n, 19_000n, 49_000n, 99_000n, 249_000n]);
+    assert.deepEqual([pricing.minEur, pricing.maxEur, pricing.minIcp, pricing.maxIcp, pricing.minToken, pricing.maxToken],
+      [49n, 999n, 9n, 249n, 9_000n, 249_000n]);
+    assert.deepEqual(pricing.token, []);
     f.backend.setPrincipal(buyer);
-    assert.deepEqual(await f.backend.setIcpRate(50_000_000n), { err: { forbidden: null } });
+    assert.deepEqual(await f.backend.setTierPrices({ icp: null }, [1n, 2n, 3n, 4n, 5n]), { err: { forbidden: null } });
+    assert.deepEqual(await f.backend.setToken([{ ledger: buyer, market: buyer, symbol: "X" }]), { err: { forbidden: null } });
     assert.deepEqual(await f.backend.withdrawIcp(account(buyer), 1n), { err: { forbidden: null } });
+    assert.deepEqual(await f.backend.withdrawToken(account(buyer), 1n), { err: { forbidden: null } });
+    for (const icp of [0n, 8n, 250n]) assert.ok("err" in await f.backend.buyWithIcp(icp));
+    assert.match((await f.backend.buyWithToken(9_000n)).err.rejected, /not enabled/);
     for (const eur of [0n, 48n, 1000n]) assert.ok("err" in await f.backend.createPurchase(eur));
     for (const [eur, tier] of [[49n, 0n], [98n, 0n], [99n, 1n], [150n, 1n], [498n, 2n], [500n, 3n], [999n, 4n]]) {
       const purchase = (await f.backend.createPurchase(eur)).ok;
@@ -132,36 +148,39 @@ test("pricing is public; any euro price in range maps to a tier; only controller
       await f.pic.tick(12);
     }
     f.backend.setPrincipal(owner);
-    assert.ok("err" in await f.backend.setIcpRate(1n));
-    assert.ok("err" in await f.backend.setIcpRate(2_000_000_000n));
-    assert.ok("ok" in await f.backend.setIcpRate(50_000_000n));
-    assert.equal((await f.backend.pricing()).e8sPerEur, 50_000_000n);
+    for (const bad of [[1n, 2n, 3n, 4n], [0n, 1n, 2n, 3n, 4n], [1n, 2n, 2n, 3n, 4n], [1n, 2n, 3n, 4n, 2_000_000_000n]]) {
+      assert.ok("err" in await f.backend.setTierPrices({ icp: null }, bad));
+    }
+    assert.ok("err" in await f.backend.setTierPrices({ paw: null }, [1n, 2n, 3n, 4n, 5n]));
+    assert.ok("ok" in await f.backend.setTierPrices({ icp: null }, [5n, 10n, 20n, 50n, 100n]));
+    assert.ok("ok" in await f.backend.setTierPrices({ token: null }, [100n, 200n, 300n, 400n, 500n]));
+    assert.ok("err" in await f.backend.setToken([{ ledger: buyer, market: buyer, symbol: "" }]));
+    assert.ok("ok" in await f.backend.setToken([{ ledger: buyer, market: owner, symbol: "BONSAI" }]));
+    const updated = await f.backend.pricing();
+    assert.deepEqual([updated.minIcp, updated.maxIcp, updated.minToken, updated.maxToken], [5n, 100n, 100n, 500n]);
+    assert.equal(updated.token[0].symbol, "BONSAI");
+    assert.ok("ok" in await f.backend.setToken([]));
   } finally { await f.pic.tearDown(); }
 });
 
-test("ICP checkout pulls the quoted price once, mints the tier and lets the owner withdraw", async () => {
+test("ICP checkout pulls whole ICP once, mints the tier and lets the owner withdraw", async () => {
   const f = await fixture({ ledger: true });
   try {
-    const { e8sPerEur } = await f.backend.pricing();
-    const price = quote(250n, e8sPerEur);
-    assert.equal(price % 10_000n, 0n);
-    assert.ok(price >= 250n * e8sPerEur && price - 250n * e8sPerEur < 10_000n);
-    await f.icp.mint(buyer, 200n * 100_000_000n);
+    const price = 50n * E8S;
+    await f.icp.mint(buyer, 200n * E8S);
     f.backend.setPrincipal(buyer);
-    assert.ok("err" in await f.backend.buyWithIcp(250n, price - 1n), "quote below the current rate is refused before charging");
-    assert.equal((await f.backend.getMyPurchases()).length, 0);
-    assert.ok("err" in await f.backend.buyWithIcp(250n, price), "no approval");
+    assert.ok("err" in await f.backend.buyWithIcp(50n), "no approval");
     let [closed] = await f.backend.getMyPurchases();
     assert.ok("closed" in closed.fulfillment);
     assert.equal((await f.backend.paymentInfo()).pending, 0n);
     await f.pic.advanceTime(61_000);
     await approve(f, buyer, price + 10_000n);
-    const result = await f.backend.buyWithIcp(250n, price);
-    assert.ok("ok" in result, JSON.stringify(result.err, (_, v) => typeof v === "bigint" ? v.toString() : v));
+    const result = await f.backend.buyWithIcp(50n);
+    assert.ok("ok" in result, json(result.err));
     const purchase = result.ok;
     assert.ok("minted" in purchase.fulfillment);
     assert.ok("icp" in purchase.method);
-    assert.deepEqual([purchase.amountEur, purchase.tier, purchase.amountE8s[0]], [250n, 2n, price]);
+    assert.deepEqual([purchase.amountEur, purchase.tier, purchase.amountE8s[0]], [0n, 2n, price]);
     assert.equal(purchase.ledgerBlock.length, 1);
     assert.equal(purchase.artTier[0], purchase.lucky ? 3n : 2n);
     assert.equal(await f.icp.icrc1_balance_of(account(f.backendId)), price);
@@ -174,16 +193,47 @@ test("ICP checkout pulls the quoted price once, mints the tier and lets the owne
   } finally { await f.pic.tearDown(); }
 });
 
+test("token checkout pulls from the configured token ledger, never ICP, and the owner withdraws tokens", async () => {
+  const f = await fixture({ ledger: true, token: true });
+  try {
+    f.backend.setPrincipal(owner);
+    assert.ok("ok" in await f.backend.setToken([{ ledger: f.tokenId, market: f.tokenId, symbol: "BONSAI" }]));
+    const price = 20_000n * E8S;
+    await f.tok.mint(buyer, 30_000n * E8S);
+    await f.icp.mint(buyer, 100n * E8S);
+    await approve(f, buyer, 1_000n * E8S, f.icp);
+    f.backend.setPrincipal(buyer);
+    assert.match((await f.backend.buyWithToken(8_999n)).err.rejected, /9000 to 249000 BONSAI/);
+    assert.match((await f.backend.buyWithToken(20_000n)).err.rejected, /BONSAI approval/, "an ICP approval does not pay in tokens");
+    await f.pic.advanceTime(61_000);
+    await approve(f, buyer, price + 10_000n, f.tok);
+    const result = await f.backend.buyWithToken(20_000n);
+    assert.ok("ok" in result, json(result.err));
+    const purchase = result.ok;
+    assert.ok("token" in purchase.method);
+    assert.ok("minted" in purchase.fulfillment);
+    assert.deepEqual([purchase.tier, purchase.amountE8s[0]], [1n, price]);
+    assert.equal(await f.tok.icrc1_balance_of(account(f.backendId)), price);
+    assert.equal(await f.icp.icrc1_balance_of(account(f.backendId)), 0n);
+    assert.equal(await f.nft.getMintByKey(`token:${purchase.id}`).then((r) => r[0]), purchase.nftId[0]);
+    assert.deepEqual(await f.backend.tokenStats(), { mints: 1n, collectedE8s: price, buyers: 1n }, "a rejected attempt is not counted");
+    f.backend.setPrincipal(owner);
+    assert.ok("ok" in await f.backend.withdrawToken(account(owner), price - 10_000n));
+    assert.equal(await f.tok.icrc1_balance_of(account(f.backendId)), 0n);
+    assert.equal(await f.tok.icrc1_balance_of(account(owner)), price - 10_000n);
+  } finally { await f.pic.tearDown(); }
+});
+
 test("ICP ledger outage is retried with the same dedup key and charges once", async () => {
   const f = await fixture({ ledger: true });
   try {
-    const price = quote(49n, (await f.backend.pricing()).e8sPerEur);
+    const price = 9n * E8S;
     await f.icp.mint(buyer, 10n * price);
     await approve(f, buyer, 3n * price);
     f.icp.setPrincipal(owner);
     await f.icp.setMode({ unavailable: null });
     f.backend.setPrincipal(buyer);
-    let purchase = (await f.backend.buyWithIcp(49n, price)).ok;
+    let purchase = (await f.backend.buyWithIcp(9n)).ok;
     assert.ok("awaiting" in purchase.fulfillment);
     assert.equal(await f.nft.icrc7_total_supply(), 0n);
     await f.icp.setMode({ normal: null });

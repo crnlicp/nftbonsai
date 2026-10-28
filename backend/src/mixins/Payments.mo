@@ -40,14 +40,32 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
     actor(id);
   };
 
-  func ledger<system>() : Types.Ledger {
+  func icpLedger<system>() : Types.Ledger {
     actor(Runtime.envVar<system>("ICP_LEDGER_ID") ?? "ryjl3-tyaaa-aaaaa-aaaba-cai");
   };
 
-  // Shared admission checks for both payment methods.
-  func admit(caller : Principal, eur : Nat) : ?Types.PaymentError {
+  // Ledger that collects a purchase: ICP, or the configured token. Null when the token was never configured.
+  func ledgerFor<system>(method : Types.Method) : ?Types.Ledger {
+    switch (method) {
+      case (#token) state.token.map<Types.Token, Types.Ledger>(func t = actor(t.ledger.toText()));
+      case _ ?icpLedger<system>();
+    };
+  };
+
+  func unitName(method : Types.Method) : Text {
+    switch (method) {
+      case (#token) switch (state.token) { case (?t) t.symbol; case null "token" };
+      case _ "ICP";
+    };
+  };
+
+  func rangeText(anchors : [Nat], unit : Text) : Text {
+    "Choose a price from " # anchors[0].toText() # " to " # anchors[anchors.size() - 1].toText() # " " # unit;
+  };
+
+  // Shared admission checks for all payment methods; amounts are validated by each entry point.
+  func admit(caller : Principal) : ?Types.PaymentError {
     if (caller.isAnonymous()) return ?#unauthorized;
-    if (not Tiers.valid(eur)) return ?#rejected("Choose a price from €" # Tiers.MIN_EUR.toText() # " to €" # Tiers.MAX_EUR.toText());
     if (state.pending.size() >= 200) return ?#rejected("Checkout capacity reached; try again later");
     var count = 0;
     var pending = 0;
@@ -62,11 +80,11 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
     null;
   };
 
-  func newPurchase(caller : Principal, amountEur : Nat, method : Types.Method) : Types.Purchase {
+  func newPurchase(caller : Principal, amountEur : Nat, tier : Nat, method : Types.Method) : Types.Purchase {
     state.counter += 1;
     let now = Time.now();
     {
-      id = "bonsai-" # state.counter.toText(); tier = Tiers.tierOf(amountEur); method; sequence = state.counter; invoiceId = null; caller;
+      id = "bonsai-" # state.counter.toText(); tier; method; sequence = state.counter; invoiceId = null; caller;
       amountEur; checkoutUrl = null; paymentStatus = "creating"; fulfillment = #creating;
       nftId = null; seed = null; createdAt = now; updatedAt = now;
       nextCheck = now + 10_000_000_000; attempts = 0; lastError = null; sandbox = state.sandbox;
@@ -116,30 +134,77 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
   };
 
   public query func pricing() : async {
-    tiers : [{ name : Text; eur : Nat }]; minEur : Nat; maxEur : Nat; e8sPerEur : Nat; e8sStep : Nat;
+    tiers : [{ name : Text; eur : Nat; icp : Nat; token : Nat }];
+    minEur : Nat; maxEur : Nat; minIcp : Nat; maxIcp : Nat; minToken : Nat; maxToken : Nat;
+    token : ?Types.Token;
   } {
+    let last = Tiers.COUNT - 1 : Nat;
     {
-      tiers = Array.tabulate(Tiers.COUNT, func i = { name = Tiers.NAMES[i]; eur = Tiers.EUR[i] });
-      minEur = Tiers.MIN_EUR; maxEur = Tiers.MAX_EUR; e8sPerEur = state.e8sPerEur; e8sStep = Tiers.E8S_STEP;
+      tiers = Array.tabulate(Tiers.COUNT, func i = {
+        name = Tiers.NAMES[i]; eur = Tiers.EUR[i]; icp = state.icpTiers[i]; token = state.tokenTiers[i];
+      });
+      minEur = Tiers.MIN_EUR; maxEur = Tiers.MAX_EUR;
+      minIcp = state.icpTiers[0]; maxIcp = state.icpTiers[last];
+      minToken = state.tokenTiers[0]; maxToken = state.tokenTiers[last];
+      token = state.token;
     };
   };
 
-  // e8s per euro; e.g. 1 ICP = €2.44 → 40_983_606. Bounds reject unit mistakes (€0.10-€10,000 per ICP).
-  public shared ({ caller }) func setIcpRate(e8sPerEur : Nat) : async Result.Result<(), Types.PaymentError> {
+  // Public, free: how $BONSAI is being used to mint (collected = pulled from buyers).
+  public query func tokenStats() : async { mints : Nat; collectedE8s : Nat; buyers : Nat } {
+    let buyers = Set.empty<Principal>();
+    var mints = 0;
+    var collected = 0;
+    for (p in state.purchases.values()) {
+      if (p.method == #token and p.ledgerBlock != null) {
+        collected += p.amountE8s ?? 0;
+        buyers.add(p.caller);
+        if (p.nftId != null) mints += 1;
+      };
+    };
+    { mints; collectedE8s = collected; buyers = buyers.size() };
+  };
+
+  func pendingTokenPurchases() : Bool {
+    for (id in state.pending.values()) {
+      switch (state.purchases.get(id)) { case (?p) if (p.method == #token) return true; case null {} };
+    };
+    false;
+  };
+
+  // Enables token payments once the token is launched (e.g. on Soon). The ledger must be ICRC-1/ICRC-2 with 8 decimals.
+  public shared ({ caller }) func setToken(token : ?Types.Token) : async Result.Result<(), Types.PaymentError> {
     if (caller.isAnonymous()) return #err(#unauthorized);
     if (not caller.isController()) return #err(#forbidden);
-    if (e8sPerEur < 10_000 or e8sPerEur > 1_000_000_000) return #err(#rejected("Rate must be 10_000-1_000_000_000 e8s per euro"));
-    state.e8sPerEur := e8sPerEur;
+    if (pendingTokenPurchases()) return #err(#rejected("Reconcile pending token purchases before changing the token"));
+    switch (token) {
+      case (?t) if (t.symbol.size() == 0 or t.symbol.size() > 12) return #err(#rejected("Symbol must be 1-12 characters"));
+      case null {};
+    };
+    state.token := token;
     #ok();
   };
 
-  // Moves ICP proceeds out of the backend's default account.
-  public shared ({ caller }) func withdrawIcp(to : Types.Account, amount : Nat) : async Result.Result<Nat, Types.PaymentError> {
+  // Anchors are whole ICP or whole tokens, five strictly ascending values.
+  public shared ({ caller }) func setTierPrices(method : Types.Method, anchors : [Nat]) : async Result.Result<(), Types.PaymentError> {
+    if (caller.isAnonymous()) return #err(#unauthorized);
+    if (not caller.isController()) return #err(#forbidden);
+    if (not Tiers.validAnchors(anchors)) return #err(#rejected("Provide 5 ascending whole-unit prices between 1 and " # Tiers.MAX_ANCHOR.toText()));
+    switch (method) {
+      case (#icp) state.icpTiers := anchors;
+      case (#token) state.tokenTiers := anchors;
+      case (#paw) return #err(#rejected("Card tiers are fixed in euro"));
+    };
+    #ok();
+  };
+
+  func withdraw<system>(caller : Principal, method : Types.Method, to : Types.Account, amount : Nat) : async Result.Result<Nat, Types.PaymentError> {
     if (caller.isAnonymous()) return #err(#unauthorized);
     if (not caller.isController()) return #err(#forbidden);
     if (amount == 0) return #err(#rejected("Amount must be positive"));
+    let ?ledger = ledgerFor<system>(method) else return #err(#rejected("Token is not configured"));
     try {
-      switch (await ledger<system>().icrc1_transfer({
+      switch (await ledger.icrc1_transfer({
         from_subaccount = null; to; amount; fee = null; memo = null;
         created_at_time = ?Int.abs(Time.now()).toNat64();
       })) {
@@ -147,6 +212,14 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
         case (#Err e) #err(#rejected("Ledger rejected transfer: " # debug_show e));
       };
     } catch (_) { #err(#rejected("Ledger call failed; check the balance before retrying")) };
+  };
+
+  // Move proceeds out of the backend's default account (amounts in e8s; the ledger fee is charged on top).
+  public shared ({ caller }) func withdrawIcp(to : Types.Account, amount : Nat) : async Result.Result<Nat, Types.PaymentError> {
+    await withdraw<system>(caller, #icp, to, amount);
+  };
+  public shared ({ caller }) func withdrawToken(to : Types.Account, amount : Nat) : async Result.Result<Nat, Types.PaymentError> {
+    await withdraw<system>(caller, #token, to, amount);
   };
 
   func request(path : Text, body : ?Text, replicate : Bool) : async Result.Result<Text, Text> {
@@ -187,9 +260,10 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
   };
 
   public shared ({ caller }) func createPurchase(eur : Nat) : async Result.Result<Types.Purchase, Types.PaymentError> {
-    switch (admit(caller, eur)) { case (?e) return #err e; case null {} };
+    switch (admit(caller)) { case (?e) return #err e; case null {} };
+    if (not Tiers.valid(eur)) return #err(#rejected("Choose a price from €" # Tiers.MIN_EUR.toText() # " to €" # Tiers.MAX_EUR.toText()));
     if (not mock and state.apiKey == "") return #err(#rejected("Paw checkout is not configured"));
-    let p = newPurchase(caller, eur, #paw);
+    let p = newPurchase(caller, eur, Tiers.tierOf(eur), #paw);
     let id = p.id;
     let amountEur = p.amountEur;
     save(p);
@@ -233,64 +307,76 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
     } finally { ignore locks.delete(id) };
   };
 
-  // maxE8s is the quote the buyer saw; a rate change in between rejects instead of charging more.
-  public shared ({ caller }) func buyWithIcp(eur : Nat, maxE8s : Nat) : async Result.Result<Types.Purchase, Types.PaymentError> {
-    switch (admit(caller, eur)) { case (?e) return #err e; case null {} };
-    let e8s = Tiers.icpE8s(eur, state.e8sPerEur);
-    if (e8s > maxE8s) return #err(#rejected("The ICP rate changed; review the new amount and try again"));
-    let base = newPurchase(caller, eur, #icp);
+  // Whole ICP from the ICP tier range. The buyer approves exactly amount + fee, so there is no quote to drift.
+  public shared ({ caller }) func buyWithIcp(icp : Nat) : async Result.Result<Types.Purchase, Types.PaymentError> {
+    if (not Tiers.inRange(icp, state.icpTiers)) return #err(#rejected(rangeText(state.icpTiers, "ICP")));
+    await buyWithLedger(caller, #icp, icp, Tiers.tierIn(icp, state.icpTiers));
+  };
+
+  // Whole tokens from the token tier range; token payments get double lucky-bloom odds.
+  public shared ({ caller }) func buyWithToken(tokens : Nat) : async Result.Result<Types.Purchase, Types.PaymentError> {
+    let ?token = state.token else return #err(#rejected("Token payments are not enabled yet"));
+    if (not Tiers.inRange(tokens, state.tokenTiers)) return #err(#rejected(rangeText(state.tokenTiers, token.symbol)));
+    await buyWithLedger(caller, #token, tokens, Tiers.tierIn(tokens, state.tokenTiers));
+  };
+
+  func buyWithLedger(caller : Principal, method : Types.Method, units : Nat, tier : Nat) : async Result.Result<Types.Purchase, Types.PaymentError> {
+    switch (admit(caller)) { case (?e) return #err e; case null {} };
+    let base = newPurchase(caller, 0, tier, method);
     let p = { base with
-      amountE8s = ?e8s; payTime = ?Int.abs(Time.now()).toNat64();
-      paymentStatus = "icp_pending"; fulfillment = #awaiting;
+      amountE8s = ?(units * Tiers.UNIT); payTime = ?Int.abs(Time.now()).toNat64();
+      paymentStatus = "ledger_pending"; fulfillment = #awaiting;
     };
     save(p);
     state.pending.add(p.id);
     ensurePolling<system>();
     locks.add(p.id);
     try {
-      await collectIcp(p.id);
+      await collect(p.id);
       let ?latest = state.purchases.get(p.id) else Runtime.trap("Missing purchase");
       if (latest.fulfillment == #paid) await fulfill(p.id);
     } finally { ignore locks.delete(p.id) };
     let ?final = state.purchases.get(p.id) else Runtime.trap("Missing purchase");
-    if (final.fulfillment == #closed) return #err(#rejected(final.lastError ?? "ICP payment failed"));
+    if (final.fulfillment == #closed) return #err(#rejected(final.lastError ?? (unitName(method) # " payment failed")));
     #ok final;
   };
 
-  // Pulls the approved ICP. Retries reuse the stored created_at_time and memo, so the ledger dedups them:
+  // Pulls the approved ICP or tokens. Retries reuse the stored created_at_time and memo, so the ledger dedups them:
   // a Duplicate reply proves the first attempt was applied.
-  func collectIcp(id : Text) : async () {
+  func collect(id : Text) : async () {
     let ?p = state.purchases.get(id) else return;
-    let (?amount, ?time) = (p.amountE8s, p.payTime) else { problem(id, "ICP purchase is missing its price"); return };
+    let unit = unitName(p.method);
+    let (?amount, ?time) = (p.amountE8s, p.payTime) else { problem(id, unit # " purchase is missing its price"); return };
+    let ?ledger = ledgerFor<system>(p.method) else { problem(id, "Token ledger is not configured"); return };
     let reply = try {
-      await ledger<system>().icrc2_transfer_from({
+      await ledger.icrc2_transfer_from({
         spender_subaccount = null; from = { owner = p.caller; subaccount = null };
         to = { owner = self; subaccount = null }; amount; fee = null;
         memo = ?id.encodeUtf8(); created_at_time = ?time;
       });
     } catch (_) {
-      problem(id, "ICP ledger reply unavailable; the payment will be re-checked");
+      problem(id, unit # " ledger reply unavailable; the payment will be re-checked");
       return;
     };
     let ?latest = state.purchases.get(id) else return;
     func paid(block : Nat) {
-      save({ latest with ledgerBlock = ?block; paymentStatus = "icp_paid"; fulfillment = #paid; updatedAt = Time.now(); lastError = null; attempts = 0 });
+      save({ latest with ledgerBlock = ?block; paymentStatus = "ledger_paid"; fulfillment = #paid; updatedAt = Time.now(); lastError = null; attempts = 0 });
     };
     func fail(message : Text) {
-      save({ latest with paymentStatus = "icp_failed"; fulfillment = #closed; updatedAt = Time.now(); lastError = ?message });
+      save({ latest with paymentStatus = "ledger_failed"; fulfillment = #closed; updatedAt = Time.now(); lastError = ?message });
       ignore state.pending.delete(id);
     };
     switch (reply) {
       case (#Ok block) paid(block);
       case (#Err(#Duplicate { duplicate_of })) paid(duplicate_of);
-      case (#Err(#TemporarilyUnavailable)) problem(id, "ICP ledger temporarily unavailable; retrying");
+      case (#Err(#TemporarilyUnavailable)) problem(id, unit # " ledger temporarily unavailable; retrying");
       // A first attempt never reached the ledger, so these are final; after an unknown outcome they need review.
       case (#Err(#TooOld)) {
-        if (latest.attempts == 0) fail("ICP payment request expired")
-        else save({ latest with fulfillment = #review; lastError = ?"ICP payment outcome unknown; owner must reconcile" });
+        if (latest.attempts == 0) fail(unit # " payment request expired")
+        else save({ latest with fulfillment = #review; lastError = ?(unit # " payment outcome unknown; owner must reconcile") });
       };
-      case (#Err(#InsufficientAllowance _)) fail("ICP approval missing or too low");
-      case (#Err(#InsufficientFunds _)) fail("Not enough ICP in your wallet");
+      case (#Err(#InsufficientAllowance _)) fail(unit # " approval missing or too low");
+      case (#Err(#InsufficientFunds _)) fail("Not enough " # unit # " in your wallet");
       case (#Err(#BadFee { expected_fee })) fail("Unexpected ledger fee " # expected_fee.toText());
       case (#Err(#CreatedInFuture _)) problem(id, "Ledger clock skew; retrying");
       case (#Err(#BadBurn _)) fail("Ledger rejected the payment");
@@ -306,7 +392,7 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
       let entropy = await Random.blob();
       let ?current = state.purchases.get(id) else return;
       seed := ?entropy;
-      let lucky = Tiers.lucky(entropy);
+      let lucky = Tiers.lucky(entropy, current.method == #token);
       save({ current with seed; lucky; artTier = ?Tiers.artTier(current.tier, lucky); fulfillment = #paid; updatedAt = Time.now() });
     };
     let ?current = state.purchases.get(id) else return;
@@ -333,6 +419,7 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
   func mintKey(p : Types.Purchase) : Text {
     (switch (p.method) {
       case (#icp) "icp:";
+      case (#token) "token:";
       case (#paw) if (mock) "mock:" else if (p.sandbox) "paw:sandbox:" else "paw:live:";
     }) # p.id;
   };
@@ -374,8 +461,8 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
     try {
       let ?p = state.purchases.get(id) else return;
       if (p.fulfillment == #paid or p.fulfillment == #minting) { await fulfill(id); return };
-      if (p.method == #icp) {
-        if (p.fulfillment == #awaiting) await collectIcp(id);
+      if (p.method != #paw) {
+        if (p.fulfillment == #awaiting) await collect(id);
         let ?latest = state.purchases.get(id) else return;
         if (latest.fulfillment == #paid) await fulfill(id);
         return;

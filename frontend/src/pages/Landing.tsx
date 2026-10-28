@@ -14,7 +14,7 @@ export function Landing() {
             .
           </h1>
           <p className="max-w-prose text-lg leading-relaxed text-slate-300">
-            Pay by card or ICP. Get a one-of-a-kind generative pixel-art bonsai NFT,
+            Pay with ICP, $BONSAI or card. Get a one-of-a-kind generative pixel-art bonsai NFT,
             minted in real time on the Internet Computer. Stored on-chain, owned by
             you. Card availability is limited to eligible US/EU buyers; provider fees apply.
           </p>
@@ -34,8 +34,8 @@ export function Landing() {
             body: "Sprout to Imperial. Every tree is unique; higher tiers add branches, denser canopies and rarer pots. 1 in 32 blooms a tier higher.",
           },
           {
-            title: "2. Pay with card or ICP",
-            body: "Card via Paw's secure checkout, or ICP straight from your built-in wallet.",
+            title: "2. Pay with ICP, $BONSAI or card",
+            body: "ICP or $BONSAI straight from your built-in wallet ($BONSAI doubles the lucky-bloom odds), or card via Paw's secure checkout.",
           },
           {
             title: "3. Receive your NFT",

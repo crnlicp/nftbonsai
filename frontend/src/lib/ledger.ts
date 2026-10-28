@@ -11,6 +11,7 @@ import {
   TemporarilyUnavailableError,
   isIcpAccountIdentifier,
 } from "@icp-sdk/canisters/ledger/icp";
+import { GenericError as IcrcGenericError, IcrcLedgerCanister, IcrcTransferError } from "@icp-sdk/canisters/ledger/icrc";
 import { canisterEnv } from "./env";
 
 export const ICP_FEE = 10_000n;
@@ -90,5 +91,52 @@ export function ledgerMessage(error: unknown): string {
   if (error instanceof BadFeeError) return "Ledger fee changed; refresh and try again";
   if (error instanceof TemporarilyUnavailableError) return "Ledger temporarily unavailable; try again shortly";
   if (error instanceof GenericError) return error.message || "Ledger rejected the request";
+  return error instanceof Error ? error.message : String(error);
+}
+
+// Soon-launched tokens run DFINITY's ICRC-1/ICRC-2 ledger: 8 decimals, fee 0.0001.
+export const TOKEN_FEE = 10_000n;
+
+function tokenLedger(identity: Identity, ledger: Principal): IcrcLedgerCanister {
+  const agent = HttpAgent.createSync({ identity, rootKey: canisterEnv().IC_ROOT_KEY });
+  return IcrcLedgerCanister.create({ agent, canisterId: ledger });
+}
+
+export async function tokenBalance(identity: Identity, ledger: Principal): Promise<bigint> {
+  return tokenLedger(identity, ledger).balance({ owner: identity.getPrincipal(), certified: false });
+}
+
+export async function approveToken(identity: Identity, ledger: Principal, spender: Principal, amount: bigint): Promise<bigint> {
+  const now = BigInt(Date.now()) * 1_000_000n;
+  return tokenLedger(identity, ledger).approve({
+    spender: { owner: spender, subaccount: [] },
+    amount,
+    fee: TOKEN_FEE,
+    created_at_time: now,
+    expires_at: now + 10n * 60n * 1_000_000_000n,
+  });
+}
+
+export async function sendToken(identity: Identity, ledger: Principal, to: Principal, amount: bigint): Promise<bigint> {
+  return tokenLedger(identity, ledger).transfer({
+    to: { owner: to, subaccount: [] },
+    amount,
+    fee: TOKEN_FEE,
+    created_at_time: BigInt(Date.now()) * 1_000_000n,
+  });
+}
+
+export function tokenMessage(error: unknown, symbol: string): string {
+  if (error instanceof IcrcTransferError) {
+    const kind = Object.keys(error.errorType ?? {})[0];
+    const detail = (error.errorType as Record<string, { balance?: bigint }>)[kind ?? ""];
+    if (kind === "InsufficientFunds") return `Not enough ${symbol}${detail?.balance !== undefined ? ` (balance ${formatIcp(detail.balance)})` : ""}`;
+    if (kind === "Duplicate") return "This transfer was already submitted";
+    if (kind === "TooOld") return "Request expired; try again";
+    if (kind === "BadFee") return "Ledger fee changed; refresh and try again";
+    if (kind === "TemporarilyUnavailable") return "Ledger temporarily unavailable; try again shortly";
+    return error.message || `${symbol} ledger rejected the request`;
+  }
+  if (error instanceof IcrcGenericError) return error.message || `${symbol} ledger rejected the request`;
   return error instanceof Error ? error.message : String(error);
 }
