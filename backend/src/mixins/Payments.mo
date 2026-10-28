@@ -23,7 +23,7 @@ import Paw "../lib/Paw";
 import Tiers "../lib/Tiers";
 
 
-mixin (state : Types.State, mock : Bool, self : Principal) {
+mixin (state : Types.State, mock : Bool, self : Principal, captureReference : Types.Purchase -> ()) {
   transient let locks = Set.empty<Text>();
   transient var polling = false;
   transient var pollTimer : ?Timer.TimerId = null;
@@ -100,6 +100,7 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
     if (not caller.isController()) Runtime.trap("Controller only");
   };
   func save(p : Types.Purchase) {
+    captureReference(p);
     state.purchases.add(p.id, p);
   };
   func problem(id : Text, message : Text) {

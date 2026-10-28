@@ -28,6 +28,7 @@ import Option "mo:core/Option";
 import Art "../lib/Art";
 import Certification "../lib/Certification";
 import Payments "../../PaymentTypes";
+import SaleTypes "../types";
 
 mixin (
   canisterId : Principal,
@@ -42,6 +43,8 @@ mixin (
   silhouettes : Map.Map<Blob, Blob>,
   artworkHashes : Map.Map<Blob, Blob>,
   certStore : CertTree.Store,
+  saleLocks : Map.Map<Nat, SaleTypes.SaleLock>,
+  saleDeliveries : Map.Map<Nat, SaleTypes.SaleDelivery>,
 ) {
 
   // ---------------------------------------------------------------------------
@@ -505,13 +508,70 @@ mixin (
 
   public type TransferResult = { #Ok : Nat; #Err : TransferError };
 
+  public query func saleLock(tokenId : Nat) : async ?SaleTypes.SaleLock { saleLocks.get(tokenId) };
+  public query func saleDelivery(listingId : Nat) : async ?SaleTypes.SaleDelivery { saleDeliveries.get(listingId) };
+
+  public shared ({ caller }) func lockForSale(tokenId : Nat, seller : Principal, listingId : Nat) : async { #ok; #err : Text } {
+    if (not backendAuthorized<system>(caller)) return #err("Backend only");
+    let ?rec = tokens.get(tokenId) else return #err("Bonsai not found");
+    if (rec.owner != seller) return #err("Owner changed");
+    if (saleDeliveries.containsKey(listingId)) return #err("Listing was already sold");
+    switch (saleLocks.get(tokenId)) {
+      case (?existing) {
+        if (existing.listingId == listingId and existing.seller == seller) return #ok;
+        return #err("Bonsai already locked");
+      };
+      case null {};
+    };
+    saleLocks.add(tokenId, { listingId; seller });
+    #ok;
+  };
+
+  public shared ({ caller }) func unlockSale(tokenId : Nat, listingId : Nat) : async { #ok; #err : Text } {
+    if (not backendAuthorized<system>(caller)) return #err("Backend only");
+    if (saleDeliveries.containsKey(listingId)) return #err("Sale already delivered");
+    switch (saleLocks.get(tokenId)) {
+      case (?lock) if (lock.listingId != listingId) return #err("Listing lock changed");
+      case null return #ok;
+    };
+    saleLocks.remove(tokenId);
+    #ok;
+  };
+
+  public shared ({ caller }) func deliverSale(tokenId : Nat, listingId : Nat, buyer : Principal) : async { #ok : Nat; #err : Text } {
+    if (not backendAuthorized<system>(caller)) return #err("Backend only");
+    if (buyer.isAnonymous()) return #err("Invalid buyer");
+    switch (saleDeliveries.get(listingId)) {
+      case (?receipt) {
+        if (receipt.tokenId != tokenId or receipt.buyer != buyer) return #err("Conflicting sale replay");
+        return #ok(receipt.block);
+      };
+      case null {};
+    };
+    let ?lock = saleLocks.get(tokenId) else return #err("Sale lock missing");
+    if (lock.listingId != listingId) return #err("Sale lock changed");
+    let ?rec = tokens.get(tokenId) else return #err("Bonsai not found");
+    if (rec.owner != lock.seller or buyer == lock.seller) return #err("Invalid sale ownership");
+    rec.owner := buyer;
+    tokenApprovals.remove(tokenId);
+    saleLocks.remove(tokenId);
+    let block = appendBlock("7xfer", #Map([
+      ("op", #Text "7xfer"), ("tid", #Nat tokenId),
+      ("from", accountValue({ owner = lock.seller; subaccount = null })),
+      ("to", accountValue({ owner = buyer; subaccount = null })),
+    ]));
+    saleDeliveries.add(listingId, { listingId; tokenId; seller = lock.seller; buyer; block });
+    #ok block;
+  };
+
   public shared ({ caller }) func icrc7_transfer(args : [TransferArg]) : async [?TransferResult] {
     requireAuth(caller);
-    args.map<TransferArg, ?TransferResult>(func arg {
+    args.map(func arg {
       ?(switch (tokens.get(arg.token_id)) {
         case null { #Err(#NonExistingTokenId) };
         case (?rec) {
           if (rec.owner != caller) { #Err(#Unauthorized) }
+          else if (saleLocks.containsKey(arg.token_id)) { #Err(#GenericError { error_code = 409; message = "Cancel the listing before sending this bonsai" }) }
           else if (arg.to.owner.isAnonymous()) { #Err(#InvalidRecipient) }
           else {
             rec.owner := arg.to.owner;
@@ -687,6 +747,7 @@ mixin (
         case null #Err(#NonExistingTokenId);
         case (?rec) {
           if (not accountEqual({ owner = rec.owner; subaccount = null }, arg.from)) #Err(#Unauthorized)
+          else if (saleLocks.containsKey(arg.token_id)) #Err(#GenericError { error_code = 409; message = "Bonsai is locked for sale" })
           else if (arg.to.owner.isAnonymous()) #Err(#InvalidRecipient)
           else if (not isSpenderApproved(arg.token_id, rec.owner, spender, now)) #Err(#Unauthorized)
           else {

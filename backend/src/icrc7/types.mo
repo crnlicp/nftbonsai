@@ -1,6 +1,8 @@
 import Traits "../types";
 
 module {
+  public type SaleLock = { listingId : Nat; seller : Principal };
+  public type SaleDelivery = { listingId : Nat; tokenId : Nat; seller : Principal; buyer : Principal; block : Nat };
   public type BonsaiTraits = Traits.BonsaiTraits;
   public type Account = { owner : Principal; subaccount : ?Blob };
   public type NftRecord = {

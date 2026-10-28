@@ -1,25 +1,39 @@
-type Token = 
+type Token =
  record {
    ledger: principal;
    market: principal;
    symbol: text;
  };
-type Result_2 = 
+type Result_2 =
  variant {
    err: PaymentError;
    ok: Purchase;
  };
-type Result_1 = 
+type Result_1 =
  variant {
    err: PaymentError;
    ok;
  };
-type Result = 
+type Result =
  variant {
    err: PaymentError;
    ok: nat;
  };
-type Purchase = 
+type Reference =
+ record {
+   icp: nat;
+   token: nat;
+ };
+type Quote =
+ record {
+   approvalFee: nat;
+   listing: Listing;
+   paymentFee: nat;
+   payoutFee: nat;
+   sellerReceives: nat;
+   totalDebit: nat;
+ };
+type Purchase =
  record {
    amountE8s: opt nat;
    amountEur: nat;
@@ -45,13 +59,25 @@ type Purchase =
    tier: nat;
    updatedAt: int;
  };
-type PaymentError = 
+type Phase =
+ variant {
+   active;
+   cancelled;
+   cancelling;
+   collecting;
+   delivering;
+   locking;
+   paying;
+   review;
+   sold;
+ };
+type PaymentError =
  variant {
    forbidden;
    rejected: text;
    unauthorized;
  };
-type MintDetails = 
+type MintDetails =
  record {
    artTier: opt nat;
    creator: principal;
@@ -64,24 +90,52 @@ type MintDetails =
               };
    testMint: bool;
  };
-type Method = 
+type Method =
  variant {
    icp;
    paw;
    token;
  };
-type HttpRequestResult = 
+type Listing =
+ record {
+   appFee: nat;
+   buyer: opt principal;
+   createdAt: int;
+   currency: Currency;
+   deliveryBlock: opt nat;
+   error: opt text;
+   fee: nat;
+   feeBlock: opt nat;
+   feeTime: opt nat64;
+   id: nat;
+   ledger: principal;
+   nftId: nat;
+   payTime: opt nat64;
+   paymentBlock: opt nat;
+   paymentUncertain: bool;
+   payoutBlock: opt nat;
+   payoutTime: opt nat64;
+   payoutUncertain: bool;
+   phase: Phase;
+   price: nat;
+   proceeds: nat;
+   revision: nat;
+   seller: principal;
+   sweepFee: opt nat;
+   updatedAt: int;
+ };
+type HttpRequestResult =
  record {
    body: blob;
    headers: vec HttpHeader;
    status: nat;
  };
-type HttpHeader = 
+type HttpHeader =
  record {
    name: text;
    value: text;
  };
-type Fulfillment = 
+type Fulfillment =
  variant {
    awaiting;
    closed;
@@ -91,21 +145,57 @@ type Fulfillment =
    paid;
    review;
  };
-type Account = 
+type Currency =
+ variant {
+   icp;
+   token;
+ };
+type Account =
  record {
    owner: principal;
    subaccount: opt blob;
  };
 service : {
   attachPawInvoice: (id: text, invoiceId: text) -> (Result_1);
+  buyBonsai: (id: nat, revision: nat, expectedFee: nat) ->
+   (variant {
+      err: text;
+      ok: Listing;
+    });
   buyWithIcp: (icp: nat) -> (Result_2);
   buyWithToken: (tokens: nat) -> (Result_2);
+  cancelListing: (id: nat) -> (variant {
+                                 err: text;
+                                 ok: Listing;
+                               });
+  claimMarketFee: (id: nat) -> (variant {
+                                  err: text;
+                                  ok: nat;
+                                });
   closeUnknownPurchase: (id: text, reason: text) -> (Result_1);
   configurePaw: (key: text, usdcAsset: text, redirect: text, sandbox:
    bool) -> (Result_1);
   createPurchase: (eur: nat) -> (Result_2);
   getMintDetails: (keys: vec text) -> (vec opt MintDetails) query;
   getMyPurchases: () -> (vec Purchase) query;
+  listBonsai: (nftId: nat, currency: Currency, price: nat) ->
+   (variant {
+      err: text;
+      ok: Listing;
+    });
+  marketListings: (ids: vec nat) -> (vec opt Listing) query;
+  marketPolicy: () ->
+   (record {
+      feeBps: nat;
+      maxMultiple: nat;
+      token: opt Token;
+    }) query;
+  marketQuote: (id: nat) -> (variant {
+                               err: text;
+                               ok: Quote;
+                             });
+  mintReferences: (keys: vec text) -> (vec opt Reference) query;
+  myMarketActivity: (before: opt nat) -> (vec Listing) query;
   paymentInfo: () ->
    (record {
       asset: text;
@@ -132,6 +222,10 @@ service : {
     }) query;
   reconciliationQueue: () -> (vec Purchase) query;
   refreshPurchase: (id: text) -> (Result_2);
+  retryMarket: (id: nat) -> (variant {
+                               err: text;
+                               ok: Listing;
+                             });
   setTierPrices: (method: Method, anchors: vec nat) -> (Result_1);
   setToken: (token: opt Token) -> (Result_1);
   tokenStats: () ->

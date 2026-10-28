@@ -3,6 +3,7 @@ import { after, before, test } from "node:test";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { existsSync } from "node:fs";
 import { PocketIc, PocketIcServer, SubnetStateType } from "@dfinity/pic";
 import { Certificate, Cbor, reconstruct, lookup_path, LookupPathStatus, HttpAgent } from "@icp-sdk/core/agent";
 import { IDL } from "@icp-sdk/core/candid";
@@ -28,6 +29,7 @@ function rgbHash(svg) {
 }
 const seed = (name) => new Uint8Array(createHash("sha256").update(name).digest());
 const wasm = (name) => resolve(`.mops/.build/${name}.wasm`);
+const baselineDir = process.env.MARKET_BASELINE_DIR ?? "../.icp/cache/artifacts";
 let server;
 
 before(async () => { server = await PocketIcServer.start(); });
@@ -37,6 +39,8 @@ const ACCOUNT = IDL.Record({ owner: IDL.Principal, subaccount: IDL.Opt(IDL.Vec(I
 const ledgerIdl = ({ IDL }) => IDL.Service({
   mint: IDL.Func([IDL.Principal, IDL.Nat], [], []),
   setMode: IDL.Func([IDL.Variant({ normal: IDL.Null, unavailable: IDL.Null, trap: IDL.Null })], [], []),
+  setPayoutMode: IDL.Func([IDL.Variant({ normal: IDL.Null, unavailable: IDL.Null, trap: IDL.Null })], [], []),
+  setFee: IDL.Func([IDL.Nat], [], []),
   icrc1_balance_of: IDL.Func([ACCOUNT], [IDL.Nat], ["query"]),
   icrc2_approve: IDL.Func([IDL.Record({
     spender: ACCOUNT, amount: IDL.Nat, from_subaccount: IDL.Opt(IDL.Vec(IDL.Nat8)), expected_allowance: IDL.Opt(IDL.Nat),
@@ -44,7 +48,7 @@ const ledgerIdl = ({ IDL }) => IDL.Service({
   })], [IDL.Variant({ Ok: IDL.Nat, Err: IDL.Reserved })], []),
 });
 
-async function fixture({ mock = false, gateway = false, ledger = false, token = false } = {}) {
+async function fixture({ mock = false, gateway = false, ledger = false, token = false, baseline = false } = {}) {
   const pic = await PocketIc.create(server.getUrl(), gateway ? {
     nns: { state: { type: SubnetStateType.New } },
     application: [{ state: { type: SubnetStateType.New } }],
@@ -72,8 +76,8 @@ async function fixture({ mock = false, gateway = false, ledger = false, token = 
     sender: owner, canisterId: nftId,
     environmentVariables: [{ name: "PUBLIC_CANISTER_ID:backend", value: backendId.toText() }],
   });
-  await pic.installCode({ sender: owner, canisterId: nftId, wasm: wasm("icrc7"), arg: emptyArgs });
-  await pic.installCode({ sender: owner, canisterId: backendId, wasm: wasm("backend"), arg: emptyArgs });
+  await pic.installCode({ sender: owner, canisterId: nftId, wasm: baseline ? resolve(baselineDir, "icrc7") : wasm("icrc7"), arg: emptyArgs });
+  await pic.installCode({ sender: owner, canisterId: backendId, wasm: baseline ? resolve(baselineDir, "backend") : wasm("backend"), arg: emptyArgs });
   const backend = pic.createActor(backendIdl, backendId);
   const nft = pic.createActor(nftIdl, nftId);
   const deferred = pic.createDeferredActor(backendIdl, backendId);
@@ -121,6 +125,214 @@ async function approve(f, who, amount, ledger = f.icp) {
 
 const E8S = 100_000_000n;
 const json = (v) => JSON.stringify(v, (_, x) => typeof x === "bigint" ? x.toString() : x);
+
+async function mintedForMarket(f, units = 19n) {
+  await f.icp.mint(owner, 1000n * E8S);
+  await approve(f, owner, 1000n * E8S);
+  const purchase = (await f.backend.buyWithIcp(units)).ok;
+  assert.ok(purchase?.nftId.length);
+  return purchase;
+}
+
+test("marketplace enforces immutable caps, ownership locks and single-buyer settlement with isolated fees", async () => {
+  const f = await fixture({ ledger: true, token: true });
+  try {
+    const purchase = await mintedForMarket(f, 30n);
+    const nftId = purchase.nftId[0];
+    const token = (await f.nft.getNft(nftId))[0];
+    const [[reference]] = await f.backend.mintReferences([token.paymentId]);
+    assert.deepEqual(reference, { icp: 30n * E8S, token: 30_000n * E8S });
+    await f.backend.setTierPrices({ icp: null }, [90n, 190n, 490n, 990n, 2490n]);
+    assert.deepEqual((await f.backend.mintReferences([token.paymentId]))[0][0], reference);
+    assert.match((await f.backend.listBonsai(nftId, { icp: null }, 60n * E8S + 1n)).err, /2x/);
+    assert.match((await f.backend.listBonsai(nftId, { icp: null }, 0n)).err, /positive/);
+    const listing = (await f.backend.listBonsai(nftId, { icp: null }, 40n * E8S)).ok;
+    assert.ok("active" in listing.phase);
+    assert.equal((await f.nft.getNft(nftId))[0].owner.toText(), owner.toText());
+    const transfer = await f.nft.icrc7_transfer([{ token_id: nftId, to: account(buyer), from_subaccount: [], memo: [], created_at_time: [] }]);
+    assert.match(transfer[0][0].Err.GenericError.message, /Cancel/);
+    assert.match((await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).err, /own/);
+    f.backend.setPrincipal(buyer);
+    assert.match((await f.backend.cancelListing(listing.id)).err, /seller/);
+    await f.icp.mint(buyer, 100n * E8S);
+    await approve(f, buyer, 100n * E8S);
+    const before = await f.icp.icrc1_balance_of(account(buyer));
+    const sellerBefore = await f.icp.icrc1_balance_of(account(owner));
+    const sale = (await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).ok;
+    assert.ok("sold" in sale.phase, json(sale));
+    assert.equal((await f.nft.getNft(nftId))[0].owner.toText(), buyer.toText());
+    assert.equal(await f.icp.icrc1_balance_of(account(buyer)), before - sale.price - 10_000n);
+    assert.equal(await f.icp.icrc1_balance_of(account(owner)), sellerBefore + sale.proceeds);
+    assert.equal(sale.appFee, 80_000_000n);
+    const replay = (await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).ok;
+    assert.deepEqual(replay, sale);
+    assert.equal(await f.icp.icrc1_balance_of(account(buyer)), before - sale.price - 10_000n);
+    assert.match((await f.backend.listBonsai(nftId, { icp: null }, 60n * E8S + 1n)).err, /2x/);
+    const relisted = (await f.backend.listBonsai(nftId, { icp: null }, 60n * E8S)).ok;
+    assert.ok("active" in relisted.phase);
+    assert.ok("cancelled" in (await f.backend.cancelListing(relisted.id)).ok.phase);
+    f.backend.setPrincipal(owner);
+    assert.ok("ok" in await f.backend.claimMarketFee(listing.id));
+    assert.ok("ok" in await f.backend.claimMarketFee(listing.id), "fee sweep is idempotent");
+    const recipient = Principal.selfAuthenticating(Uint8Array.of(3));
+    f.nft.setPrincipal(buyer);
+    const sent = await f.nft.icrc7_transfer([{ token_id: nftId, to: account(recipient), from_subaccount: [], memo: [], created_at_time: [] }]);
+    assert.ok("Ok" in sent[0][0]);
+    assert.match((await f.nft.deliverSale(nftId, listing.id, buyer)).err, /backend/i);
+    await setBackend(f, owner);
+    f.nft.setPrincipal(owner);
+    assert.equal((await f.nft.deliverSale(nftId, listing.id, buyer)).ok, sale.deliveryBlock[0]);
+    assert.equal((await f.nft.getNft(nftId))[0].owner.toText(), recipient.toText(), "old delivery replay cannot undo an onward transfer");
+    assert.match((await f.nft.deliverSale(nftId, listing.id, owner)).err, /receipt|match|conflict/i);
+  } finally { await f.pic.tearDown(); }
+});
+
+test("marketplace reconciles expired unknown debits and payouts without recharging or stranding proceeds", async () => {
+  const f = await fixture({ ledger: true });
+  try {
+    const nftId = (await mintedForMarket(f)).nftId[0];
+    let listing = (await f.backend.listBonsai(nftId, { icp: null }, 20n * E8S)).ok;
+    await f.icp.mint(buyer, 100n * E8S);
+    await approve(f, buyer, 100n * E8S);
+    f.backend.setPrincipal(buyer);
+    const before = await f.icp.icrc1_balance_of(account(buyer));
+    await f.icp.setMode({ trap: null });
+    let sale = (await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).ok;
+    assert.ok(sale.paymentUncertain);
+    await f.pic.advanceTime(25 * 60 * 60 * 1000);
+    await f.icp.setMode({ normal: null });
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await f.pic.tick(10);
+      listing = (await f.backend.marketListings([listing.nftId]))[0][0];
+      if ("active" in listing.phase) break;
+      await f.backend.retryMarket(listing.id);
+    }
+    assert.ok("active" in listing.phase, json(listing));
+    assert.equal(await f.icp.icrc1_balance_of(account(buyer)), before);
+    assert.equal((await f.nft.getNft(nftId))[0].owner.toText(), owner.toText());
+    await f.icp.setPayoutMode({ trap: null });
+    sale = (await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).ok;
+    assert.ok("paying" in sale.phase);
+    assert.ok(sale.payoutUncertain);
+    const paidBalance = await f.icp.icrc1_balance_of(account(buyer));
+    await f.pic.advanceTime(25 * 60 * 60 * 1000);
+    await f.icp.setFee(20_000n);
+    await f.icp.setPayoutMode({ normal: null });
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await f.pic.tick(10);
+      sale = (await f.backend.marketListings([listing.nftId]))[0][0];
+      if ("sold" in sale.phase) break;
+      await f.backend.retryMarket(listing.id);
+    }
+    assert.ok("sold" in sale.phase, json(sale));
+    assert.equal(sale.proceeds, sale.price - sale.appFee - 20_000n);
+    assert.equal(await f.icp.icrc1_balance_of(account(buyer)), paidBalance);
+    assert.equal((await f.nft.getNft(nftId))[0].owner.toText(), buyer.toText());
+  } finally { await f.pic.tearDown(); }
+});
+
+test("marketplace paid delivery and seller payouts recover across outages and upgrades without recharging", async () => {
+  const f = await fixture({ ledger: true });
+  try {
+    const purchase = await mintedForMarket(f);
+    const nftId = purchase.nftId[0];
+    const listing = (await f.backend.listBonsai(nftId, { icp: null }, 20n * E8S)).ok;
+    await f.icp.mint(buyer, 100n * E8S);
+    await approve(f, buyer, 100n * E8S);
+    await setBackend(f, owner);
+    f.backend.setPrincipal(buyer);
+    let sale = (await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).ok;
+    assert.ok("delivering" in sale.phase);
+    const paidBalance = await f.icp.icrc1_balance_of(account(buyer));
+    assert.match((await f.backend.cancelListing(listing.id)).err, /seller/);
+    f.backend.setPrincipal(owner);
+    assert.match((await f.backend.cancelListing(listing.id)).err, /reserved/);
+    await f.pic.upgradeCanister({ sender: owner, canisterId: f.backendId, wasm: wasm("backend"), arg: emptyArgs, upgradeModeOptions });
+    await setBackend(f, f.backendId);
+    await f.icp.setPayoutMode({ unavailable: null });
+    f.backend.setPrincipal(buyer);
+    sale = (await f.backend.retryMarket(listing.id)).ok;
+    assert.ok("paying" in sale.phase);
+    assert.equal((await f.nft.getNft(nftId))[0].owner.toText(), buyer.toText());
+    await f.icp.setPayoutMode({ normal: null });
+    await f.icp.setFee(20_000n);
+    await f.backend.retryMarket(listing.id);
+    sale = (await f.backend.retryMarket(listing.id)).ok;
+    assert.ok("sold" in sale.phase, json(sale));
+    assert.equal(sale.proceeds, sale.price - sale.appFee - 20_000n);
+    assert.equal(await f.icp.icrc1_balance_of(account(buyer)), paidBalance);
+    assert.equal((await f.backend.myMarketActivity([]))[0].id, sale.id);
+  } finally { await f.pic.tearDown(); }
+});
+
+test("marketplace reservations prevent double buyers and preserve approval locks", async () => {
+  const f = await fixture({ ledger: true });
+  try {
+    const purchase = await mintedForMarket(f);
+    const nftId = purchase.nftId[0];
+    await f.nft.icrc37_approve_collection([{ approval_info: {
+      spender: account(buyer), memo: [], from_subaccount: [], created_at_time: [], expires_at: [],
+    } }]);
+    const listing = (await f.backend.listBonsai(nftId, { icp: null }, 20n * E8S)).ok;
+    f.nft.setPrincipal(buyer);
+    const approved = (await f.nft.icrc37_transfer_from([{
+      spender_subaccount: [], from: account(owner), to: account(buyer), token_id: nftId, memo: [], created_at_time: [],
+    }]))[0][0];
+    assert.match(approved.Err.GenericError.message, /locked/);
+    await f.icp.mint(buyer, 100n * E8S);
+    await approve(f, buyer, 100n * E8S);
+    await f.icp.setMode({ unavailable: null });
+    f.backend.setPrincipal(buyer);
+    const reserved = (await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).ok;
+    assert.ok("collecting" in reserved.phase);
+    f.backend.setPrincipal(Principal.selfAuthenticating(Uint8Array.of(3)));
+    assert.match((await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).err, /reserved/);
+    await f.icp.setMode({ normal: null });
+    f.backend.setPrincipal(buyer);
+    assert.ok("sold" in (await f.backend.retryMarket(listing.id)).ok.phase);
+  } finally { await f.pic.tearDown(); }
+});
+
+test("marketplace upgrades the deployed pre-marketplace artifacts preserving purchases, SVGs and frozen references", {
+  skip: !existsSync(resolve(baselineDir, "backend")) || !existsSync(resolve(baselineDir, "icrc7")),
+}, async () => {
+  const f = await fixture({ ledger: true, baseline: true });
+  try {
+    const purchase = await mintedForMarket(f, 30n);
+    const nftId = purchase.nftId[0];
+    const art = (await f.nft.getArtwork(nftId))[0];
+    await f.pic.upgradeCanister({ sender: owner, canisterId: f.nftId, wasm: wasm("icrc7"), arg: emptyArgs, upgradeModeOptions });
+    await f.pic.upgradeCanister({ sender: owner, canisterId: f.backendId, wasm: wasm("backend"), arg: emptyArgs, upgradeModeOptions });
+    assert.deepEqual((await f.backend.getMyPurchases())[0], purchase);
+    assert.equal((await f.nft.getArtwork(nftId))[0].svg, art.svg);
+    const key = (await f.nft.getNft(nftId))[0].paymentId;
+    assert.deepEqual((await f.backend.mintReferences([key]))[0][0], { icp: 30n * E8S, token: 30_000n * E8S });
+    const listing = (await f.backend.listBonsai(nftId, { icp: null }, 40n * E8S)).ok;
+    assert.ok("active" in listing.phase);
+    await f.pic.upgradeCanister({ sender: owner, canisterId: f.nftId, wasm: wasm("icrc7"), arg: emptyArgs, upgradeModeOptions });
+    assert.equal((await f.nft.saleLock(nftId))[0].listingId, listing.id);
+  } finally { await f.pic.tearDown(); }
+});
+
+test("marketplace cross-currency token sales use pinned ledgers and caps, not current tier prices", async () => {
+  const f = await fixture({ ledger: true, token: true });
+  try {
+    await f.backend.setToken([{ ledger: f.tokenId, market: f.tokenId, symbol: "BONSAI" }]);
+    const purchase = await mintedForMarket(f, 19n);
+    const nftId = purchase.nftId[0];
+    assert.match((await f.backend.listBonsai(nftId, { token: null }, 38_000n * E8S + 1n)).err, /2x/);
+    const listing = (await f.backend.listBonsai(nftId, { token: null }, 25_000n * E8S)).ok;
+    await f.tok.mint(buyer, 100_000n * E8S);
+    await approve(f, buyer, 100_000n * E8S, f.tok);
+    await f.backend.setToken([]);
+    f.backend.setPrincipal(buyer);
+    const sale = (await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).ok;
+    assert.ok("sold" in sale.phase);
+    assert.equal(sale.ledger.toText(), f.tokenId.toText());
+    assert.equal(await f.tok.icrc1_balance_of(account(owner)), sale.proceeds);
+    assert.match((await f.backend.listBonsai(nftId, { token: null }, 25_000n * E8S)).err, /not configured/);
+  } finally { await f.pic.tearDown(); }
+});
 
 test("pricing is public; any amount in range maps to a tier; only controllers set tiers, the token and withdraw", async () => {
   const f = await fixture({ mock: true, ledger: true });

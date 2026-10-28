@@ -10,6 +10,7 @@ import {
 import { backendActor } from "../lib/actors";
 import type { Token } from "../bindings/backend";
 import { soonLogoUrl, soonTokenUrl } from "../lib/soon";
+import { MarketActivity } from "../components/MarketActivity";
 
 type Asset = "icp" | "token";
 
@@ -249,6 +250,7 @@ export function Wallet() {
               </button>
               <button className="btn-ghost" onClick={() => setReview(null)} disabled={sending}>Cancel</button>
             </div>
+            <MarketActivity />
           </div>
         )}
         {error && <p role="alert" className="text-sm text-red-200">{error}</p>}

@@ -34,12 +34,12 @@ export function Landing() {
             body: "Sprout to Imperial. Every tree is unique; higher tiers add branches, denser canopies and rarer pots. 1 in 32 blooms a tier higher.",
           },
           {
-            title: "2. Pay with ICP, $BONSAI or card",
-            body: "ICP or $BONSAI straight from your built-in wallet ($BONSAI doubles the lucky-bloom odds), or card via Paw's secure checkout.",
+            title: "2. Collect & trade",
+            body: "Find a listed bonsai in the grove, or sell yours for ICP or $BONSAI. Prices are capped at 2x the original mint reference, with a 2% seller fee and no listing fee. Network fees apply.",
           },
           {
-            title: "3. Receive your NFT",
-            body: "After verified settlement, your bonsai is minted to your Internet Identity principal. Recover pending purchases any time.",
+            title: "3. Own it. Share it.",
+            body: "Your bonsai belongs to your Internet Identity principal. Keep it, list it, or send an unlisted tree to another valid principal from its details. Pending purchases stay recoverable.",
           },
         ].map((step) => (
           <article key={step.title} className="glass p-6">
@@ -58,6 +58,17 @@ export function Landing() {
           this device. Then mint in three clicks.
         </p>
         <Link to="/mint" className="btn-primary">Start minting</Link>
+      </section>
+
+      <section className="glass space-y-3 p-6 md:p-8">
+        <span className="text-xs font-medium uppercase tracking-widest text-moss-300">Meet $BONSAI</span>
+        <h2 className="font-display text-2xl font-semibold">A token rooted in the grove</h2>
+        <p className="max-w-3xl text-sm leading-relaxed text-slate-300">
+          $BONSAI is our community token, launched on Soon. Mint with it for double the lucky-bloom odds,
+          or use it to trade listed trees. Prefer ICP or card? Both remain available for minting;
+          card eligibility and provider fees apply.
+        </p>
+        <Link to="/bonsai" className="btn-ghost">Explore the $BONSAI market</Link>
       </section>
     </div>
   );

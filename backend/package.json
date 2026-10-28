@@ -6,10 +6,10 @@
     "check": "mops check",
     "build": "mops build",
     "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "mops test Paw && mops test Tiers && mops test Art --mode wasi",
+    "test:unit": "mops test Paw && mops test Tiers && mops test Market && mops test Art --mode wasi",
     "samples:landing": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/landing-samples.mjs",
     "test:auth:local": "node --test tests/browser/local-auth.mjs",
-    "test:collection": "node --test tests/browser/collection.mjs",
+    "test:collection": "node --test --test-concurrency=1 tests/browser/collection.mjs tests/browser/marketplace-local.mjs",
     "test:browser:local": "node --test --test-concurrency=1 tests/browser/landing.mjs tests/browser/mint.mjs tests/browser/wallet.mjs",
     "test:integration": "mops build && npm --prefix ../frontend run bindings && node --test tests/*.test.mjs",
     "test:art:full": "mops build art-tests && ART_SAMPLES=10000 node --test --test-name-pattern='seeded trees' tests/canisters.test.mjs"

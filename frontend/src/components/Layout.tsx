@@ -45,9 +45,9 @@ export function Layout() {
           <div className="flex items-center gap-3">
             {isAuthenticated ? (
               <>
-                <span className="hidden font-mono text-xs text-slate-400 md:inline" title={principal}>
-                  {short(principal)}
-                </span>
+                <NavLink to="/wallet" aria-label="Open your wallet" className="rounded-md font-mono text-[10px] text-moss-200 hover:text-white md:text-xs">
+                  <span title={principal}>{short(principal)}</span>
+                </NavLink>
                 <button onClick={signOut} className="btn-ghost px-3 py-1.5 text-sm" disabled={isLoading}>
                   Sign out
                 </button>
@@ -76,7 +76,11 @@ export function Layout() {
       </main>
 
       <footer className="mx-auto w-full max-w-6xl px-4 pb-8 text-center text-xs text-slate-500 md:px-8">
-        NFTs grown on the Internet Computer · card payments by PawPayments · ICP on-chain
+        <p className="mb-2 flex flex-wrap items-center justify-center gap-2 text-slate-400">
+          <img src="/icp-logo.svg" alt="" className="h-4 w-7" />
+          Fully hosted on-chain on the Internet Computer
+        </p>
+        <p>App, backend & bonsai artwork on-chain · card payments by PawPayments</p>
       </footer>
     </div>
   );

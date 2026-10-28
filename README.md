@@ -127,8 +127,9 @@ colors reconstructed from the canonical SVG.
 ### Collection cards
 
 Gallery and My bonsai share compact responsive cards with the artwork, name,
-tier, actual mint price (not a resale listing or today's tier anchor) and a short
-description, with a badge for lucky blooms. The artwork, name and **View details**
+tier, listed price when available (otherwise the actual mint price), a shortened
+current-owner principal and a short description, with a badge for lucky blooms.
+The artwork, name and **View details** / **View & buy**
 button open a scrollable modal with the original minter
 (creator), current owner, mint date and time in the viewer's local timezone,
 traits and pixel-art facts. The modal supports Escape, backdrop click, keyboard
@@ -151,6 +152,80 @@ metadata, errors/retries and pagination. Set `COLLECTION_LIVE_ORIGIN` to the loc
 app's origin to also sign in and mint using local mock card payments; optionally
 set `COLLECTION_SCREENSHOT_DIR` to save desktop/mobile collection and modal
 screenshots. Never point this live test at production.
+
+### Marketplace and NFT sending
+
+Owners can create one fixed-price listing per bonsai in **ICP or configured
+$BONSAI**, with up to eight decimal places. There is no listing fee, auction,
+expiry or creator royalty. Cancel a listing to reprice it or send the tree.
+The owner remains the owner while listed, but both ordinary and approved
+transfers are locked until cancellation or sale delivery.
+
+- The maximum price is **2x the immutable original mint reference**, never
+  2x the previous resale. Each currency has its own frozen reference.
+- Same-currency reference is the actual amount paid. Counterpart reference is
+  `amount paid x paid-tier target anchor / paid-tier source anchor`, rounded
+  down in eight-decimal units. Card purchases use the original EUR amount and
+  paid-tier EUR anchor. These are tier equivalents, **not exchange rates**.
+- Lucky bloom upgrades the artwork, not the paid tier or listing cap.
+  New purchases freeze references when the receipt is first saved. Historical
+  purchases freeze the launch-time anchors during migration because counterpart
+  anchors were not recorded at mint time. Missing/unverified receipts disable
+  listing, not sending.
+- The **seller pays a 2% app fee** (rounded down) plus the payout ledger fee.
+  The buyer pays approval and payment ledger fees in addition to the sale price.
+  Both parties see a review before committing. A positive price must leave
+  positive seller proceeds and a nonzero app fee.
+- The detail modal validates the recipient principal and shows a separate
+  confirmation before an irreversible NFT transfer. Sending is free of app
+  fees; it does not change the creator, mint receipt or artwork.
+
+The backend reserves a sale before collecting payment and saves each operation
+before its inter-canister call. Every sale uses an isolated ledger subaccount,
+so mint-revenue withdrawals cannot consume seller proceeds. The collection
+delivers once by listing ID, clears token approvals and retains the delivery
+receipt even after onward transfers. Seller payout follows delivery; app fees
+cannot be withdrawn before the seller is paid. Ledger IDs are pinned to listings,
+so disabling $BONSAI does not invalidate existing token sales.
+
+**Recovery:** Wallet and My bonsai contain persistent, paginated Marketplace
+activity, including proceeds for trees no longer owned. Pending operations
+automatically retry; **Resume / retry** uses the saved sale, not a new approval
+or debit. Unknown replies retain the same transaction key. An expired operation
+is only reset after the ledger explicitly returns `TooOld` and a subsequent
+sale-account balance proves whether payment occurred. Unfunded expired
+reservations reopen; funded sales deliver; unpaid expired payouts get a new
+key only after that proof. Unexpected partial balances or fees exceeding
+proceeds enter visible review with assets protected. Retrying review rechecks
+the ledger; it never blindly refunds or makes a new charge. There is no
+automatic post-delivery refund or NFT clawback.
+
+Controllers collect an individual sale's app fee with `claimMarketFee(id)`.
+The fee sweep pays its own network fee and is idempotent while its transaction
+key is valid. Dust below that fee stays in the sale account. An uncertain,
+expired fee sweep requires ledger-history reconciliation; do not generate a
+fresh transfer key or drain sale accounts manually without verifying history.
+
+Marketplace release order is **upgrade the NFT canister, then backend, then
+frontend**. Use upgrades, never reinstalls, for the current enhanced-migration
+chain. The pending marketplace migrations preserve artwork, purchases,
+approvals/history and freeze historical references. Before mainnet release,
+run `npm --prefix backend test`, `npm --prefix frontend run build` and the
+collection browser suite against a local app. The integration upgrade test
+uses old WASMs named `backend` and `icrc7` from `MARKET_BASELINE_DIR` (default
+`../.icp/cache/artifacts`, resolved from the backend working directory); it is
+explicitly skipped when those artifacts are absent. Preserve old deployed
+artifacts before replacing deployment caches.
+
+For real local listing/cancel/send UI tests without the external Internet
+Identity service, set `COLLECTION_MARKET_ORIGIN=http://localhost:5173` when
+running `test:collection`. This local-only test substitutes a generated signing
+identity, not the backend or ledger APIs, and uses the existing local mock-card
+checkout to mint a tree. The local $BONSAI ledger must be configured.
+`COLLECTION_SCREENSHOT_DIR` saves desktop/mobile listed cards, seller listing
+review, a second principal's buyer quote, send confirmation and landing/footer
+screenshots. The separate
+`COLLECTION_LIVE_ORIGIN` test retains the real Internet Identity sign-in flow.
 
 ## ICP and $BONSAI checkout and wallet
 

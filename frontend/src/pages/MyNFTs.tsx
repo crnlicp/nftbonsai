@@ -2,20 +2,23 @@ import { useEffect, useState } from "react";
 import { useAuthContext } from "../components/AuthProvider";
 import { icrc7Actor } from "../lib/actors";
 import { BonsaiCollection } from "../components/BonsaiCollection";
+import { MarketActivity } from "../components/MarketActivity";
 import type { NftPublic } from "../lib/idl";
 import { Principal } from "@icp-sdk/core/principal";
+import { BALANCE_POLL_MS, startPolling } from "../lib/polling";
 
 export function MyNFTs() {
   const { isAuthenticated, identity, signIn, principal } = useAuthContext();
   const [nfts, setNfts] = useState<NftPublic[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
+  useEffect(() => { setNfts(null); }, [identity, principal]);
 
   useEffect(() => {
-    setNfts(null);
     setError(null);
     if (!identity || !principal) return;
     let cancelled = false;
-    (async () => {
+    const stop = startPolling(async () => {
       try {
         const ic = await icrc7Actor(identity);
         const mine: NftPublic[] = [];
@@ -23,19 +26,22 @@ export function MyNFTs() {
         do {
           const ids = await ic.icrc7_tokens_of({ owner: Principal.fromText(principal) }, previous, 100n);
           const tokens = await Promise.all(ids.map((id) => ic.getNft(id)));
-          if (cancelled) return;
+          if (cancelled) return BALANCE_POLL_MS;
           mine.push(...tokens.filter((n): n is NftPublic => n !== null));
           previous = ids.length === 100 ? ids[ids.length - 1]! : null;
         } while (previous !== null);
         setNfts(mine);
+        setError(null);
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
-    })();
+      return BALANCE_POLL_MS;
+    });
     return () => {
       cancelled = true;
+      stop();
     };
-  }, [identity, principal]);
+  }, [identity, principal, refresh]);
 
   if (!isAuthenticated) {
     return (
@@ -72,8 +78,9 @@ export function MyNFTs() {
       )}
 
       {nfts && nfts.length > 0 && (
-        <BonsaiCollection nfts={nfts} />
+        <BonsaiCollection nfts={nfts} onChange={() => setRefresh((n) => n + 1)} />
       )}
+      <MarketActivity refreshKey={refresh} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-type Value = 
+type Value =
  variant {
    Array: vec Value;
    Blob: blob;
@@ -10,17 +10,17 @@ type Value =
    Nat: nat;
    Text: text;
  };
-type TransferResult = 
+type TransferResult =
  variant {
    Err: TransferError;
    Ok: nat;
  };
-type TransferFromResult = 
+type TransferFromResult =
  variant {
    Err: TransferFromError;
    Ok: nat;
  };
-type TransferFromError = 
+type TransferFromError =
  variant {
    CreatedInFuture: record {ledger_time: nat64;};
    Duplicate: record {duplicate_of: nat;};
@@ -37,7 +37,7 @@ type TransferFromError =
    TooOld;
    Unauthorized;
  };
-type TransferFromArg = 
+type TransferFromArg =
  record {
    created_at_time: opt nat64;
    from: Account;
@@ -46,7 +46,7 @@ type TransferFromArg =
    to: Account;
    token_id: nat;
  };
-type TransferError = 
+type TransferError =
  variant {
    GenericError: record {
                    error_code: nat;
@@ -56,7 +56,7 @@ type TransferError =
    NonExistingTokenId;
    Unauthorized;
  };
-type TransferArg = 
+type TransferArg =
  record {
    created_at_time: opt nat64;
    from_subaccount: opt blob;
@@ -64,23 +64,36 @@ type TransferArg =
    to: Account;
    token_id: nat;
  };
-type TokenApproval = 
+type TokenApproval =
  record {
    approval_info: ApprovalInfo;
    token_id: nat;
  };
-type Segment = 
+type Segment =
  record {
    end: Point;
    start: Point;
    width: int;
  };
-type RevokeTokenApprovalResult = 
+type SaleLock =
+ record {
+   listingId: nat;
+   seller: principal;
+ };
+type SaleDelivery =
+ record {
+   block: nat;
+   buyer: principal;
+   listingId: nat;
+   seller: principal;
+   tokenId: nat;
+ };
+type RevokeTokenApprovalResult =
  variant {
    Err: RevokeTokenApprovalError;
    Ok: nat;
  };
-type RevokeTokenApprovalError = 
+type RevokeTokenApprovalError =
  variant {
    ApprovalDoesNotExist;
    CreatedInFuture: record {ledger_time: nat64;};
@@ -96,7 +109,7 @@ type RevokeTokenApprovalError =
    TooOld;
    Unauthorized;
  };
-type RevokeTokenApprovalArg = 
+type RevokeTokenApprovalArg =
  record {
    created_at_time: opt nat64;
    from_subaccount: opt blob;
@@ -104,12 +117,12 @@ type RevokeTokenApprovalArg =
    spender: opt Account;
    token_id: nat;
  };
-type RevokeCollectionApprovalResult = 
+type RevokeCollectionApprovalResult =
  variant {
    Err: RevokeCollectionApprovalError;
    Ok: nat;
  };
-type RevokeCollectionApprovalError = 
+type RevokeCollectionApprovalError =
  variant {
    ApprovalDoesNotExist;
    CreatedInFuture: record {ledger_time: nat64;};
@@ -124,31 +137,31 @@ type RevokeCollectionApprovalError =
    TooOld;
    Unauthorized;
  };
-type RevokeCollectionApprovalArg = 
+type RevokeCollectionApprovalArg =
  record {
    created_at_time: opt nat64;
    from_subaccount: opt blob;
    memo: opt blob;
    spender: opt Account;
  };
-type Point = 
+type Point =
  record {
    x: int;
    y: int;
  };
-type PaymentError = 
+type PaymentError =
  variant {
    forbidden;
    rejected: text;
    unauthorized;
  };
-type Pad = 
+type Pad =
  record {
    center: Point;
    rx: int;
    ry: int;
  };
-type NftPublic = 
+type NftPublic =
  record {
    createdAt: int;
    id: nat;
@@ -156,31 +169,31 @@ type NftPublic =
    paymentId: text;
    traits: BonsaiTraits;
  };
-type IsApprovedArg = 
+type IsApprovedArg =
  record {
    from_subaccount: opt blob;
    spender: Account;
    token_id: nat;
  };
-type HttpResponse = 
+type HttpResponse =
  record {
    body: blob;
    headers: vec HeaderField;
    status_code: nat16;
  };
-type HttpRequest = 
+type HttpRequest =
  record {
    body: blob;
    headers: vec HeaderField;
    method: text;
    url: text;
  };
-type HeaderField = 
+type HeaderField =
  record {
    text;
    text;
  };
-type GetBlocksResult = 
+type GetBlocksResult =
  record {
    archived_blocks:
     vec
@@ -194,18 +207,18 @@ type GetBlocksResult =
                };
    log_length: nat;
  };
-type GetBlocksArgs = 
+type GetBlocksArgs =
  vec record {
        length: nat;
        start: nat;
      };
 type GetArchivesArgs = record {from: opt principal;};
-type DataCertificate = 
+type DataCertificate =
  record {
    certificate: blob;
    hash_tree: blob;
  };
-type CollectionApproval = 
+type CollectionApproval =
  record {
    created_at_time: opt nat64;
    expires_at: opt nat64;
@@ -213,7 +226,7 @@ type CollectionApproval =
    memo: opt blob;
    spender: Account;
  };
-type BonsaiTraits = 
+type BonsaiTraits =
  record {
    branchCount: nat8;
    ground: nat8;
@@ -229,7 +242,7 @@ type BonsaiTraits =
    trunkStyle: nat8;
    trunkThick: nat8;
  };
-type Artwork = 
+type Artwork =
  record {
    attempt: nat;
    pads: vec Pad;
@@ -243,18 +256,18 @@ type Artwork =
    traits: BonsaiTraits;
    version: nat;
  };
-type ArchiveInfo = 
+type ArchiveInfo =
  record {
    canister_id: principal;
    end: nat;
    start: nat;
  };
-type ApproveTokenResult = 
+type ApproveTokenResult =
  variant {
    Err: ApproveTokenError;
    Ok: nat;
  };
-type ApproveTokenError = 
+type ApproveTokenError =
  variant {
    CreatedInFuture: record {ledger_time: nat64;};
    GenericBatchError: record {
@@ -270,17 +283,17 @@ type ApproveTokenError =
    TooOld;
    Unauthorized;
  };
-type ApproveTokenArg = 
+type ApproveTokenArg =
  record {
    approval_info: ApprovalInfo;
    token_id: nat;
  };
-type ApproveCollectionResult = 
+type ApproveCollectionResult =
  variant {
    Err: ApproveCollectionError;
    Ok: nat;
  };
-type ApproveCollectionError = 
+type ApproveCollectionError =
  variant {
    CreatedInFuture: record {ledger_time: nat64;};
    GenericBatchError: record {
@@ -296,7 +309,7 @@ type ApproveCollectionError =
    Unauthorized;
  };
 type ApproveCollectionArg = record {approval_info: ApprovalInfo;};
-type ApprovalInfo = 
+type ApprovalInfo =
  record {
    created_at_time: opt nat64;
    expires_at: opt nat64;
@@ -304,12 +317,17 @@ type ApprovalInfo =
    memo: opt blob;
    spender: Account;
  };
-type Account = 
+type Account =
  record {
    owner: principal;
    subaccount: opt blob;
  };
 service : {
+  deliverSale: (tokenId: nat, listingId: nat, buyer: principal) ->
+   (variant {
+      err: text;
+      ok: nat;
+    });
   getArtwork: (id: nat) -> (opt Artwork) query;
   getImageBaseUrl: () -> (text) query;
   getMintByKey: (key: text) -> (opt nat) query;
@@ -374,9 +392,20 @@ service : {
   icrc7_transfer: (args: vec TransferArg) -> (vec opt TransferResult);
   listPage: (before: opt nat, limit: nat) -> (vec NftPublic) query;
   listRecent: (limit: nat) -> (vec NftPublic) query;
+  lockForSale: (tokenId: nat, seller: principal, listingId: nat) ->
+   (variant {
+      err: text;
+      ok;
+    });
   mintV2: (to: principal, seed: blob, tier: nat, key: text) ->
    (variant {
       err: PaymentError;
       ok: nat;
     });
+  saleDelivery: (listingId: nat) -> (opt SaleDelivery) query;
+  saleLock: (tokenId: nat) -> (opt SaleLock) query;
+  unlockSale: (tokenId: nat, listingId: nat) -> (variant {
+                                                   err: text;
+                                                   ok;
+                                                 });
 }

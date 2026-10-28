@@ -17,9 +17,11 @@ persistent actor self {
   let silhouettes : Map.Map<Blob, Blob>;
   let artworkHashes : Map.Map<Blob, Blob>;
   let certStore : CertTree.Store;
+  let saleLocks : Map.Map<Nat, Types.SaleLock>;
+  let saleDeliveries : Map.Map<Nat, Types.SaleDelivery>;
 
   include Collection(Principal.fromActor(self), tokens, counters, tokenApprovals,
     collectionApprovals, blocks, artwork, mintKeys, mintRecipients, silhouettes,
-    artworkHashes, certStore);
+    artworkHashes, certStore, saleLocks, saleDeliveries);
   initializeCertification<system>();
 }

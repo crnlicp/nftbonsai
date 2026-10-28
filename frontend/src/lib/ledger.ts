@@ -102,6 +102,20 @@ function tokenLedger(identity: Identity, ledger: Principal): IcrcLedgerCanister 
   return IcrcLedgerCanister.create({ agent, canisterId: ledger });
 }
 
+export async function approveMarket(identity: Identity, ledger: Principal, spender: Principal, amount: bigint, fee: bigint): Promise<bigint> {
+  return tokenLedger(identity, ledger).approve({
+    spender: { owner: spender, subaccount: [] },
+    amount,
+    fee,
+    created_at_time: BigInt(Date.now()) * 1_000_000n,
+    expires_at: BigInt(Date.now()) * 1_000_000n + 10n * 60n * 1_000_000_000n,
+  });
+}
+
+export async function marketLedgerFee(identity: Identity, ledger: Principal): Promise<bigint> {
+  return tokenLedger(identity, ledger).transactionFee({ certified: false });
+}
+
 export async function tokenBalance(identity: Identity, ledger: Principal): Promise<bigint> {
   return tokenLedger(identity, ledger).balance({ owner: identity.getPrincipal(), certified: false });
 }
