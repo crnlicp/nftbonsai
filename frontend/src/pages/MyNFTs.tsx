@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuthContext } from "../components/AuthProvider";
 import { icrc7Actor } from "../lib/actors";
-import { BonsaiSvg } from "../components/BonsaiSvg";
-import { bonsaiDescription } from "../lib/render";
+import { BonsaiCollection } from "../components/BonsaiCollection";
 import type { NftPublic } from "../lib/idl";
 import { Principal } from "@icp-sdk/core/principal";
 
@@ -73,24 +72,7 @@ export function MyNFTs() {
       )}
 
       {nfts && nfts.length > 0 && (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {nfts.map((n) => (
-            <li key={n.id.toString()} className="glass-strong overflow-hidden p-4">
-              <div className="glass-inset p-2">
-                <BonsaiSvg nftId={n.id} alt={bonsaiDescription(n.traits)} />
-              </div>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="font-mono text-sm text-slate-300">#{n.id.toString()}</span>
-                <span className="text-xs text-slate-400">
-                  {new Date(Number(n.createdAt / 1_000_000n)).toLocaleDateString()}
-                </span>
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-slate-400">
-                {bonsaiDescription(n.traits)}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <BonsaiCollection nfts={nfts} />
       )}
     </div>
   );

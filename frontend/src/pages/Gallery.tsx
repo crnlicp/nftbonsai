@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 import { icrc7Actor } from "../lib/actors";
-import { BonsaiSvg } from "../components/BonsaiSvg";
-import { bonsaiDescription } from "../lib/render";
+import { BonsaiCollection } from "../components/BonsaiCollection";
 import type { NftPublic } from "../lib/idl";
-
-function short(p: string): string {
-  return p.length > 12 ? `${p.slice(0, 5)}…${p.slice(-3)}` : p;
-}
 
 export function Gallery() {
   const [nfts, setNfts] = useState<NftPublic[] | null>(null);
@@ -56,21 +51,7 @@ export function Gallery() {
       )}
 
       {nfts && nfts.length > 0 && (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {nfts.map((n) => (
-            <li key={n.id.toString()} className="glass p-3">
-              <div className="glass-inset p-2">
-                <BonsaiSvg nftId={n.id} alt={bonsaiDescription(n.traits)} />
-              </div>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="font-mono text-sm">#{n.id.toString()}</span>
-                <span className="font-mono text-xs text-slate-400" title={n.owner.toText()}>
-                  {short(n.owner.toText())}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <BonsaiCollection nfts={nfts} />
       )}
       {hasMore && <button disabled={loadingMore} className="btn-ghost" onClick={async () => {
         setLoadingMore(true);

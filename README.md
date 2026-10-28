@@ -124,6 +124,34 @@ hashes, bounded occupancy, connected tree pixels, valid attached/tapered trunk
 geometry and all 25 style/tier combinations. It also compares RGB hashes with
 colors reconstructed from the canonical SVG.
 
+### Collection cards
+
+Gallery and My bonsai share compact responsive cards with the artwork, name,
+tier, actual mint price (not a resale listing or today's tier anchor) and a short
+description, with a badge for lucky blooms. The artwork, name and **View details**
+button open a scrollable modal with the original minter
+(creator), current owner, mint date and time in the viewer's local timezone,
+traits and pixel-art facts. The modal supports Escape, backdrop click, keyboard
+focus containment and focus restoration. Identity summaries expand to show the
+full principal on desktop or mobile. Version-8-and-later artwork explains the pot's
+7 x 7 miniature tree-silhouette stamp. Lucky blooms and test/card-sandbox mints
+are labelled explicitly.
+
+The public `getMintDetails` query accepts up to 100 mint keys and returns only
+completed-mint provenance: NFT ID, original minter, paid amount/currency,
+art tier, lucky-bloom flag and test-mint flag. Invoice IDs, checkout URLs and
+uncompleted purchases remain private. Creator and mint price stay tied to the
+original purchase after transfers. Missing legacy receipts display "Not recorded";
+query failures show an explicit error and retry button. Details and artwork
+metadata are fetched in batches rather than once per card.
+
+With the Vite dev server running, `cd backend && npm run test:collection` checks
+compact cards, modal keyboard/close behavior, narrow-screen layouts, legacy
+metadata, errors/retries and pagination. Set `COLLECTION_LIVE_ORIGIN` to the local
+app's origin to also sign in and mint using local mock card payments; optionally
+set `COLLECTION_SCREENSHOT_DIR` to save desktop/mobile collection and modal
+screenshots. Never point this live test at production.
+
 ## ICP and $BONSAI checkout and wallet
 
 The **Wallet** page (`/wallet`) shows the signed-in principal's ICP balance on

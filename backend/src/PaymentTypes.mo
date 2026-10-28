@@ -12,6 +12,14 @@ module {
   };
   public type Fulfillment = { #creating; #awaiting; #paid; #minting; #minted; #review; #closed };
   public type Method = { #paw; #icp; #token };
+  public type MintDetails = {
+    nftId : Nat;
+    creator : Principal;
+    price : ?{ #eur : Nat; #icp : Nat; #token : Nat };
+    artTier : ?Nat;
+    lucky : Bool;
+    testMint : Bool;
+  };
   // A Soon-launched ICRC-1/ICRC-2 token (8 decimals) accepted as payment, set by controllers after launch.
   public type Token = { ledger : Principal; market : Principal; symbol : Text };
   public type Purchase = {

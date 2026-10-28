@@ -424,6 +424,28 @@ mixin (state : Types.State, mock : Bool, self : Principal) {
     }) # p.id;
   };
 
+  // Only completed-mint provenance is public; checkout and invoice data stay private.
+  public query func getMintDetails(keys : [Text]) : async [?Types.MintDetails] {
+    if (keys.size() > 100) Runtime.trap("Request at most 100 mint details");
+    keys.map(func key {
+      if (key.size() > 128) return null;
+      var id = "";
+      for (part in key.split(#char ':')) { id := part };
+      let ?p = state.purchases.get(id) else return null;
+      let ?nftId = p.nftId else return null;
+      if (p.fulfillment != #minted or mintKey(p) != key) return null;
+      let price = switch (p.method) {
+        case (#paw) ?#eur(p.amountEur);
+        case (#icp) p.amountE8s.map<Nat, { #eur : Nat; #icp : Nat; #token : Nat }>(func amount = #icp amount);
+        case (#token) p.amountE8s.map<Nat, { #eur : Nat; #icp : Nat; #token : Nat }>(func amount = #token amount);
+      };
+      ?{
+        nftId; creator = p.caller; price; artTier = p.artTier; lucky = p.lucky;
+        testMint = p.method == #paw and (mock or p.sandbox);
+      };
+    });
+  };
+
   func reconcileCreation(p : Types.Purchase) : async () {
     let from = Int.abs(p.createdAt / 1_000_000_000 - 60).toText();
     let until = Int.abs(p.createdAt / 1_000_000_000 + 300).toText();

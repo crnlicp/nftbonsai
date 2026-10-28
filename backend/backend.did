@@ -51,6 +51,19 @@ type PaymentError =
    rejected: text;
    unauthorized;
  };
+type MintDetails = 
+ record {
+   artTier: opt nat;
+   creator: principal;
+   lucky: bool;
+   nftId: nat;
+   price: opt variant {
+                eur: nat;
+                icp: nat;
+                token: nat;
+              };
+   testMint: bool;
+ };
 type Method = 
  variant {
    icp;
@@ -91,6 +104,7 @@ service : {
   configurePaw: (key: text, usdcAsset: text, redirect: text, sandbox:
    bool) -> (Result_1);
   createPurchase: (eur: nat) -> (Result_2);
+  getMintDetails: (keys: vec text) -> (vec opt MintDetails) query;
   getMyPurchases: () -> (vec Purchase) query;
   paymentInfo: () ->
    (record {

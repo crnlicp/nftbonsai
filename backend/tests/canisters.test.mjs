@@ -172,6 +172,7 @@ test("ICP checkout pulls whole ICP once, mints the tier and lets the owner withd
     assert.ok("err" in await f.backend.buyWithIcp(50n), "no approval");
     let [closed] = await f.backend.getMyPurchases();
     assert.ok("closed" in closed.fulfillment);
+    assert.deepEqual(await f.backend.getMintDetails([`icp:${closed.id}`]), [[]], "failed payments have no public receipt");
     assert.equal((await f.backend.paymentInfo()).pending, 0n);
     await f.pic.advanceTime(61_000);
     await approve(f, buyer, price + 10_000n);
@@ -187,6 +188,10 @@ test("ICP checkout pulls whole ICP once, mints the tier and lets the owner withd
     const art = (await f.nft.getArtwork(purchase.nftId[0]))[0];
     assert.equal(art.traits.branchCount, 3 + Number(purchase.artTier[0]));
     assert.equal((await f.nft.getNft(purchase.nftId[0]))[0].owner.toText(), buyer.toText());
+    const [[receipt]] = await f.backend.getMintDetails([`icp:${purchase.id}`]);
+    assert.deepEqual(receipt.price, [{ icp: price }]);
+    assert.equal(receipt.creator.toText(), buyer.toText());
+    assert.equal(receipt.testMint, false);
     f.backend.setPrincipal(owner);
     assert.ok("ok" in await f.backend.withdrawIcp(account(owner), price - 10_000n));
     assert.equal(await f.icp.icrc1_balance_of(account(f.backendId)), 0n);
@@ -216,6 +221,7 @@ test("token checkout pulls from the configured token ledger, never ICP, and the 
     assert.equal(await f.tok.icrc1_balance_of(account(f.backendId)), price);
     assert.equal(await f.icp.icrc1_balance_of(account(f.backendId)), 0n);
     assert.equal(await f.nft.getMintByKey(`token:${purchase.id}`).then((r) => r[0]), purchase.nftId[0]);
+    assert.deepEqual((await f.backend.getMintDetails([`token:${purchase.id}`]))[0][0].price, [{ token: price }]);
     assert.deepEqual(await f.backend.tokenStats(), { mints: 1n, collectedE8s: price, buyers: 1n }, "a rejected attempt is not counted");
     f.backend.setPrincipal(owner);
     assert.ok("ok" in await f.backend.withdrawToken(account(owner), price - 10_000n));
@@ -294,6 +300,7 @@ test("STATIC partial payments do not mint; success fulfills once despite net fee
   const f = await fixture();
   try {
     let purchase = await createPaw(f);
+    assert.deepEqual(await f.backend.getMintDetails([`paw:live:${purchase.id}`, "unknown"]), [[], []]);
     purchase = await status(f, purchase, { ok: true, result: invoice("0123456789abcdef01234567", purchase.id, "partially_paid") });
     assert.equal(await f.nft.icrc7_total_supply(), 0n);
     assert.ok("awaiting" in purchase.fulfillment);
@@ -304,6 +311,25 @@ test("STATIC partial payments do not mint; success fulfills once despite net fee
     assert.equal(await f.nft.icrc7_total_supply(), 1n);
     const token = (await f.nft.getNft(purchase.nftId[0]))[0];
     assert.equal(token.owner.toText(), owner.toText());
+    f.backend.setPrincipal(Principal.anonymous());
+    const [[details]] = await f.backend.getMintDetails([token.paymentId]);
+    assert.deepEqual(Object.keys(details).sort(), ["artTier", "creator", "lucky", "nftId", "price", "testMint"]);
+    assert.equal(details.creator.toText(), owner.toText());
+    assert.equal(details.nftId, token.id);
+    assert.deepEqual(details.price, [{ eur: 150n }]);
+    assert.equal(details.artTier[0], purchase.artTier[0]);
+    assert.equal(details.lucky, purchase.lucky);
+    assert.equal(details.testMint, false);
+    assert.deepEqual(await f.backend.getMintDetails([`icp:${purchase.id}`, "x".repeat(129)]), [[], []]);
+    await assert.rejects(f.backend.getMintDetails(new Array(101).fill(token.paymentId)), /at most 100/);
+    f.nft.setPrincipal(owner);
+    assert.ok("Ok" in (await f.nft.icrc7_transfer([{
+      from_subaccount: [], to: account(buyer), token_id: token.id, memo: [], created_at_time: [],
+    }]))[0][0]);
+    assert.equal((await f.nft.getNft(token.id))[0].owner.toText(), buyer.toText());
+    assert.equal((await f.backend.getMintDetails([token.paymentId]))[0][0].creator.toText(), owner.toText(),
+      "creator does not change with ownership");
+    f.backend.setPrincipal(owner);
     const art = (await f.nft.getArtwork(token.id))[0];
     assert.equal(art.version, 8n);
     assert.equal(art.seed.length, 32);
