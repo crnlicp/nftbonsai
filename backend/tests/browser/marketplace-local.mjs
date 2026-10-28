@@ -49,6 +49,8 @@ test("signed local marketplace renders real listings, sending and responsive lan
       for (const [device, width, height] of [["desktop", 1440, 1100], ["mobile", 390, 1000]]) {
         await page.setViewportSize({ width, height });
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+        // Full-page stitching drops backdrop-filter layers; grow the viewport to the page instead.
+        if (name === "collection") await page.setViewportSize({ width, height: await page.evaluate(() => document.documentElement.scrollHeight) });
         if (screenshotDir) await page.screenshot({ path: join(screenshotDir, `${name}-${device}.png`), fullPage: name === "landing" });
       }
     }
@@ -95,6 +97,18 @@ test("signed local marketplace renders real listings, sending and responsive lan
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     await page.locator("footer").scrollIntoViewIfNeeded();
     await capture("landing-footer");
+    await page.goto(new URL("/wallet", liveOrigin).href);
+    await page.getByRole("link", { name: "Canister IDs & wallet guide", exact: true }).click();
+    await page.getByRole("heading", { name: "On-chain & in your wallet", exact: true }).waitFor();
+    const logo = page.getByRole("img", { name: "ICPBonsai collection logo" });
+    await logo.evaluate((img) => img.decode());
+    assert.ok(await logo.evaluate((img) => img.naturalWidth > 0), "collection logo loads from the NFT canister");
+    const nftCanister = await page.getByTestId("canister-NFT collection").innerText();
+    assert.match(nftCanister, /^[a-z0-9-]+-cai$/);
+    await page.getByText("$BONSAI ledger", { exact: true }).waitFor();
+    await page.setViewportSize({ width: 320, height: 900 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "collection page fits 320px");
+    await capture("collection");
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });

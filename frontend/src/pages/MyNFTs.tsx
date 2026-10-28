@@ -1,47 +1,43 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuthContext } from "../components/AuthProvider";
 import { icrc7Actor } from "../lib/actors";
 import { BonsaiCollection } from "../components/BonsaiCollection";
 import { MarketActivity } from "../components/MarketActivity";
+import { LoadMore } from "../components/LoadMore";
+import { useCursorList } from "../hooks/useCursorList";
 import type { NftPublic } from "../lib/idl";
 import { Principal } from "@icp-sdk/core/principal";
-import { BALANCE_POLL_MS, startPolling } from "../lib/polling";
+import { BALANCE_POLL_MS } from "../lib/polling";
+import { PAGE_SIZE } from "./Gallery";
 
 export function MyNFTs() {
   const { isAuthenticated, identity, signIn, principal } = useAuthContext();
-  const [nfts, setNfts] = useState<NftPublic[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
-  useEffect(() => { setNfts(null); }, [identity, principal]);
+  const [count, setCount] = useState<bigint | null>(null);
+
+  const fetchPage = useCallback(async (previous: bigint | null) => {
+    const ic = await icrc7Actor(identity ?? undefined);
+    const ids = await ic.icrc7_tokens_of({ owner: Principal.fromText(principal!) }, previous, BigInt(PAGE_SIZE));
+    const tokens = await Promise.all(ids.map((id) => ic.getNft(id)));
+    return {
+      items: tokens.filter((n): n is NftPublic => n !== null),
+      next: ids.length === PAGE_SIZE ? ids[ids.length - 1]! : null,
+    };
+  }, [identity, principal]);
+  const list = useCursorList<NftPublic, bigint>({
+    key: `${principal}`, enabled: !!identity && !!principal, fetchPage, pollMs: BALANCE_POLL_MS,
+  });
+  const { items: nfts, hasMore, loading, error, loadMore, refresh: refreshList } = list;
 
   useEffect(() => {
-    setError(null);
-    if (!identity || !principal) return;
+    setCount(null);
+    if (!principal) return;
     let cancelled = false;
-    const stop = startPolling(async () => {
-      try {
-        const ic = await icrc7Actor(identity);
-        const mine: NftPublic[] = [];
-        let previous: bigint | null = null;
-        do {
-          const ids = await ic.icrc7_tokens_of({ owner: Principal.fromText(principal) }, previous, 100n);
-          const tokens = await Promise.all(ids.map((id) => ic.getNft(id)));
-          if (cancelled) return BALANCE_POLL_MS;
-          mine.push(...tokens.filter((n): n is NftPublic => n !== null));
-          previous = ids.length === 100 ? ids[ids.length - 1]! : null;
-        } while (previous !== null);
-        setNfts(mine);
-        setError(null);
-      } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      }
-      return BALANCE_POLL_MS;
-    });
-    return () => {
-      cancelled = true;
-      stop();
-    };
-  }, [identity, principal, refresh]);
+    icrc7Actor().then((ic) => ic.icrc7_balance_of([{ owner: Principal.fromText(principal) }]))
+      .then(([n]) => { if (!cancelled) setCount(n ?? null); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [principal, refresh, nfts?.length]);
 
   if (!isAuthenticated) {
     return (
@@ -55,18 +51,21 @@ export function MyNFTs() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between">
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-3xl font-semibold">My bonsai</h2>
           <p className="text-sm text-slate-400">
-            {nfts === null ? "Loading…" : `${nfts.length} bonsai in your grove`}
+            {nfts === null ? "Loading…" : `${(count ?? BigInt(nfts.length)).toString()} bonsai in your grove`}
           </p>
         </div>
+        <Link to="/collection" className="text-sm text-moss-200 underline-offset-4 hover:underline">
+          See them in OISY &amp; other wallets →
+        </Link>
       </header>
 
-      {error && (
-        <div className="glass rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-          {error}
+      {error && nfts === null && (
+        <div role="alert" className="glass rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          {error} <button className="underline" onClick={refreshList}>Try again</button>
         </div>
       )}
 
@@ -78,7 +77,11 @@ export function MyNFTs() {
       )}
 
       {nfts && nfts.length > 0 && (
-        <BonsaiCollection nfts={nfts} onChange={() => setRefresh((n) => n + 1)} />
+        <>
+          <BonsaiCollection nfts={nfts} onChange={() => { refreshList(); setRefresh((n) => n + 1); }} />
+          <LoadMore hasMore={hasMore} loading={loading} onLoad={() => void loadMore()} label="Load more of my bonsai"
+            error={error} onRetry={() => void loadMore()} />
+        </>
       )}
       <MarketActivity refreshKey={refresh} />
     </div>

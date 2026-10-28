@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Principal } from "@icp-sdk/core/principal";
+import { Link } from "react-router-dom";
 import type { Listing, Quote, Reference } from "../bindings/backend";
 import { Currency } from "../bindings/backend";
 import type { NftPublic } from "../lib/idl";
@@ -173,6 +174,7 @@ export function MarketControls({ nft, listing, reference, tokenEnabled, ready, o
                       <input disabled={busy} value={recipient} onChange={(e) => { setRecipient(e.target.value); setSendTo(null); }} className="mt-1 w-full rounded-lg border border-white/15 bg-black/20 p-2 font-mono text-xs text-slate-100" placeholder="Recipient principal" />
                     </label>
                     <button disabled={busy} className="btn-ghost w-full">Review transfer</button>
+                    <p className="text-[11px] text-slate-400">Moving it to OISY or another wallet? Use that wallet's principal, then <Link className="text-moss-200 underline" to="/collection">import the collection</Link>.</p>
                   </form>}
                   {showSend && sendTo && <div className="glass-inset space-y-2 p-3 text-xs">
                     <p>This transfer is irreversible. Confirm the full recipient:</p>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BALANCE_POLL_MS, startPolling } from "../lib/polling";
 import QRCode from "qrcode";
 import { Principal } from "@icp-sdk/core/principal";
+import { Link } from "react-router-dom";
 import { useAuthContext } from "../components/AuthProvider";
 import {
   ICP_FEE, TOKEN_FEE, accountId, balanceOf, formatIcp, ledgerMessage, parseDestination, parseIcp, sendIcp, sendToken,
@@ -11,6 +12,7 @@ import { backendActor } from "../lib/actors";
 import type { Token } from "../bindings/backend";
 import { soonLogoUrl, soonTokenUrl } from "../lib/soon";
 import { MarketActivity } from "../components/MarketActivity";
+import { CopyButton } from "../components/CopyButton";
 
 type Asset = "icp" | "token";
 
@@ -29,23 +31,6 @@ function CoinBadge({ asset, symbol, market, size }: { asset: Asset; symbol: stri
     <span aria-hidden className={`${box} grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-moss-400 to-moss-700 font-bold text-white`}>
       {symbol.charAt(0)}
     </span>
-  );
-}
-
-function CopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      className="btn-ghost px-3 py-1.5 text-sm"
-      onClick={() => {
-        void navigator.clipboard.writeText(value).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        });
-      }}
-    >
-      {copied ? "Copied" : "Copy"}
-    </button>
   );
 }
 
@@ -257,6 +242,14 @@ export function Wallet() {
         {sent && <p role="status" className="text-sm text-emerald-300">{sent}</p>}
       </section>
       </div>
+
+      <section className="glass flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="font-display text-xl">Your bonsai in other wallets</h2>
+          <p className="text-xs text-slate-400">Find the NFT collection canister ID and how to view your bonsai in OISY or other ICRC-7 wallets.</p>
+        </div>
+        <Link to="/collection" className="btn-ghost shrink-0 justify-center px-4 py-2 text-sm">Canister IDs &amp; wallet guide</Link>
+      </section>
     </div>
   );
 }

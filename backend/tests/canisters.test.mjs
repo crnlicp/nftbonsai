@@ -305,6 +305,8 @@ test("marketplace upgrades the deployed pre-marketplace artifacts preserving pur
     await f.pic.upgradeCanister({ sender: owner, canisterId: f.backendId, wasm: wasm("backend"), arg: emptyArgs, upgradeModeOptions });
     assert.deepEqual((await f.backend.getMyPurchases())[0], purchase);
     assert.equal((await f.nft.getArtwork(nftId))[0].svg, art.svg);
+    assert.equal((await f.nft.http_request({ method: "GET", url: "/logo.svg", headers: [], body: new Uint8Array() })).status_code, 200,
+      "upgraded collection serves the certified logo");
     const key = (await f.nft.getNft(nftId))[0].paymentId;
     assert.deepEqual((await f.backend.mintReferences([key]))[0][0], { icp: 30n * E8S, token: 30_000n * E8S });
     const listing = (await f.backend.listBonsai(nftId, { icp: null }, 40n * E8S)).ok;
@@ -550,6 +552,13 @@ test("STATIC partial payments do not mint; success fulfills once despite net fee
     assert.equal(new TextDecoder().decode(image.body), art.svg);
     const [[metadata]] = await f.nft.icrc7_token_metadata([token.id]);
     assert.match(metadata.find(([k]) => k === "icrc7:metadata:uri:image")[1].Text, /\.icp\.net\/nft\/0\.svg$/);
+    assert.equal(metadata.find(([k]) => k === "icrc7:image")[1].Text, metadata.find(([k]) => k === "icrc7:metadata:uri:image")[1].Text);
+    const logoUrl = `https://${f.nftId.toText()}.icp.net/logo.svg`;
+    assert.deepEqual(await f.nft.icrc7_logo(), [logoUrl]);
+    assert.equal((await f.nft.icrc7_collection_metadata()).find(([k]) => k === "icrc7:logo")[1].Text, logoUrl);
+    const logo = await f.nft.http_request({ method: "GET", url: "/logo.svg", headers: [], body: new Uint8Array() });
+    assert.equal(logo.status_code, 200);
+    assert.match(new TextDecoder().decode(logo.body), /^<svg [^>]*viewBox="0 0 32 32"/);
     const tip = await f.nft.icrc3_get_tip_certificate();
     assert.equal(tip.length, 1);
     assert.ok(tip[0].certificate.length);
@@ -773,6 +782,10 @@ test("verifying gateway accepts images, 404 and 405; ICRC-3 witness authenticate
     const host = `http://localhost:${port}`;
     for (const [path, method, expected] of [
       [`/nft/${id}.svg`, "GET", 200],
+      ["/logo.svg", "GET", 200],
+      ["/logo.svg", "POST", 405],
+      ["/logo.svg/x", "GET", 404],
+      ["/logo", "GET", 404],
       ["/nft/123.svg", "GET", 404],
       ["/unknown/path", "GET", 404],
       ["/nft/00.svg", "GET", 404],

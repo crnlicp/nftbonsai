@@ -129,7 +129,7 @@ colors reconstructed from the canonical SVG.
 Gallery and My bonsai share compact responsive cards with the artwork, name,
 tier, listed price when available (otherwise the actual mint price), a shortened
 current-owner principal and a short description, with a badge for lucky blooms.
-The artwork, name and **View details** / **View & buy**
+The artwork, name and **Details** (or **Details & Buy** on someone else's listing)
 button open a scrollable modal with the original minter
 (creator), current owner, mint date and time in the viewer's local timezone,
 traits and pixel-art facts. The modal supports Escape, backdrop click, keyboard
@@ -146,9 +146,28 @@ original purchase after transfers. Missing legacy receipts display "Not recorded
 query failures show an explicit error and retry button. Details and artwork
 metadata are fetched in batches rather than once per card.
 
+Gallery, My bonsai and marketplace activity use **infinite scroll**: 24 bonsai
+(50 activity rows) per page, loaded as a sentinel nears the viewport, with a
+visible "Load more" fallback button, an `aria-live` status and an end-of-list
+message. Gallery shows "Showing N of total". Only the newly appended page's
+details are fetched; the 30-second refresh re-reads just the pages already
+loaded, so scroll position is kept. The shared logic lives in
+[useCursorList.ts](frontend/src/hooks/useCursorList.ts) and
+[LoadMore.tsx](frontend/src/components/LoadMore.tsx).
+
+### Canister IDs and wallets (`/collection`)
+
+The `/collection` page (linked from the Wallet page, My bonsai, the Send tab and
+the footer) lists the NFT collection, mint/marketplace, web app, ICP ledger and
+$BONSAI ledger canister IDs with copy buttons and ICP dashboard links, and
+explains how to view bonsai in OISY: Internet Identity principals differ per
+app, so first send the bonsai to your OISY principal, then import the NFT
+collection canister ID in OISY. Plug lists NFTs from its own registry and may
+not show ICRC-7 collections.
+
 With the Vite dev server running, `cd backend && npm run test:collection` checks
 compact cards, modal keyboard/close behavior, narrow-screen layouts, legacy
-metadata, errors/retries and pagination. Set `COLLECTION_LIVE_ORIGIN` to the local
+metadata, errors/retries and infinite-scroll pagination. Set `COLLECTION_LIVE_ORIGIN` to the local
 app's origin to also sign in and mint using local mock card payments; optionally
 set `COLLECTION_SCREENSHOT_DIR` to save desktop/mobile collection and modal
 screenshots. Never point this live test at production.
@@ -335,7 +354,15 @@ Suggested Soon token description:
 `GET /nft/<id>.svg` serves the frozen artwork from the NFT canister. Frontend
 cards, reveals and metadata use this same image; there is no second browser
 renderer. Gallery uses cursor pagination; owned tokens are retrieved through
-`icrc7_tokens_of`, not a latest-200 collection window.
+`icrc7_tokens_of`, not a latest-200 collection window. Token metadata exposes
+the image as both `icrc7:metadata:uri:image` and the wallet-conventional
+`icrc7:image`.
+
+The collection logo (the bonsai mark, [Logo.mo](backend/src/icrc7/lib/Logo.mo))
+is served on-chain at `GET /logo.svg` from the NFT canister with the same HTTP
+certification (GET 200, other methods 405). `icrc7_logo` and the
+`icrc7:logo` collection metadata return its URL,
+`https://<icrc7-id>.icp.net/logo.svg`, which wallets such as OISY display.
 
 The landing page randomly selects three distinct pixel-art samples produced by
 the actual Motoko NFT renderer, not a separate browser generation algorithm.

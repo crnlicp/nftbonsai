@@ -81,6 +81,7 @@ export function Layout() {
           Fully hosted on-chain on the Internet Computer
         </p>
         <p>App, backend & bonsai artwork on-chain · card payments by PawPayments</p>
+        <p className="mt-2"><NavLink to="/collection" className="text-moss-300 underline-offset-4 hover:underline">Canister IDs &amp; wallet import</NavLink></p>
       </footer>
     </div>
   );

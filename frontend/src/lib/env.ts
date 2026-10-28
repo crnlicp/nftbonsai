@@ -8,12 +8,25 @@ export function canisterEnv() {
   return config;
 }
 
-export function nftImageUrl(id: bigint): string {
+function nftOrigin(): string {
   const config = canisterEnv();
   const nft = config["PUBLIC_CANISTER_ID:icrc7"];
   const local = window.location.hostname === "localhost" || window.location.hostname.endsWith(".localhost");
   const origin = config["PUBLIC_NFT_IMAGE_ORIGIN"] || (local
     ? `${window.location.protocol}//${nft}.localhost${window.location.port ? `:${window.location.port}` : ""}`
     : `https://${nft}.icp.net`);
-  return `${origin}/nft/${id}.svg`;
+  return origin;
+}
+
+export function nftImageUrl(id: bigint): string {
+  return `${nftOrigin()}/nft/${id}.svg`;
+}
+
+/** Collection logo served (and certified) by the NFT canister; wallets read it from `icrc7:logo`. */
+export function collectionLogoUrl(): string {
+  return `${nftOrigin()}/logo.svg`;
+}
+
+export function isLocalNetwork(): boolean {
+  return window.location.hostname === "localhost" || window.location.hostname.endsWith(".localhost");
 }

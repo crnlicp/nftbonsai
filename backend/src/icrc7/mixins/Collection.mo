@@ -27,6 +27,7 @@ import Option "mo:core/Option";
 
 import Art "../lib/Art";
 import Certification "../lib/Certification";
+import Logo "../lib/Logo";
 import Payments "../../PaymentTypes";
 import SaleTypes "../types";
 
@@ -285,7 +286,7 @@ mixin (
   public query func icrc7_description() : async ?Text {
     ?"Generative pixel-art bonsai NFTs minted on the Internet Computer.";
   };
-  public query func icrc7_logo() : async ?Text { null };
+  public query func icrc7_logo() : async ?Text { ?logoUri() };
   public query func icrc7_total_supply() : async Nat { counters.nextId };
   public query func icrc7_supply_cap() : async ?Nat { null };
   public query func icrc7_max_query_batch_size() : async ?Nat { ?100 };
@@ -310,6 +311,7 @@ mixin (
       ("icrc7:name", #Text "ICPBonsai"),
       ("icrc7:symbol", #Text "ICPBONSAI"),
       ("icrc7:description", #Text "Generative pixel-art bonsai NFTs minted on the Internet Computer."),
+      ("icrc7:logo", #Text(logoUri())),
       ("icrc7:total_supply", #Nat(counters.nextId)),
     ];
   };
@@ -366,6 +368,8 @@ mixin (
         case null null;
         case (?rec) ?Array.concat([
           ("icrc7:metadata:uri:image", #Text(imageUri(id))),
+          // Common wallet key (e.g. OISY) for the token artwork.
+          ("icrc7:image", #Text(imageUri(id))),
           ("bonsai:payment_id", #Text(rec.paymentId)),
           ("bonsai:created_at_ns", #Int(rec.createdAt)),
           ("bonsai:traits", #Map(traitsAsValue(rec.traits))),
@@ -381,6 +385,10 @@ mixin (
         });
       };
     });
+  };
+
+  func logoUri() : Text {
+    "https://" # canisterId.toText() # ".icp.net/logo.svg";
   };
 
   func imageUri(id : Nat) : Text {
@@ -471,12 +479,15 @@ mixin (
         if (req.method != "GET") methodNotAllowed()
         else imageResponse((artwork.get(token.id) ?? Runtime.trap("Missing canonical artwork")).svg.encodeUtf8());
       };
-      case null { if (req.method != "GET") methodNotAllowed() else httpNotFound() };
+      case null if (path == "/logo.svg") {
+        expressionPath := logoExpressionPath();
+        if (req.method != "GET") methodNotAllowed() else imageResponse(Logo.svg.encodeUtf8());
+      } else { if (req.method != "GET") methodNotAllowed() else httpNotFound() };
     };
     let labels = expressionPath.map(Text.encodeUtf8);
     let paths = List.empty<CertTree.Path>();
     paths.add(httpPath(labels, response));
-    if (Option.isNull(rec)) {
+    if (Option.isNull(rec) and path != "/logo.svg") {
       // Wildcard proofs also exclude exact matches and more-specific wildcards.
       var prefix : CertTree.Path = ["http_expr"];
       let wildcard : CertTree.Path = ["<*>"];
@@ -842,9 +853,14 @@ mixin (
     };
   };
 
+  func logoExpressionPath() : [Text] { ["http_expr", "logo.svg", "<$>"] };
+
   func initializeCertification<system>() {
     putHttp(["http_expr", "", "<*>"], httpNotFound());
     putHttp(["http_expr", "", "<*>"], methodNotAllowed());
+    let logoPath = logoExpressionPath().map(Text.encodeUtf8);
+    putHttp(logoPath, imageResponse(Logo.svg.encodeUtf8()));
+    putHttp(logoPath, methodNotAllowed());
     certified.setCertifiedData();
   };
 };

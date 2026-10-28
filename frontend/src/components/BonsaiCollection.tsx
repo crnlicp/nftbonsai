@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { backendActor, icrc7Actor } from "../lib/actors";
 import type { NftPublic } from "../lib/idl";
 import { BonsaiCard, type BonsaiDetails } from "./BonsaiCard";
@@ -12,45 +12,67 @@ export function BonsaiCollection({ nfts, onChange }: { nfts: NftPublic[]; onChan
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
 
+  const latest = useRef(nfts);
+  latest.current = nfts;
+  const loaded = useRef(new Set<bigint>());
+
+  // Fetches receipts, metadata, listings and live owners for `list` in batches of 100.
+  const load = useCallback(async (list: NftPublic[], isCancelled: () => boolean) => {
+    const [backend, collection] = await Promise.all([backendActor(), icrc7Actor()]);
+    const policy = await backend.marketPolicy();
+    for (let start = 0; start < list.length; start += 100) {
+      const batch = list.slice(start, start + 100);
+      const [receipts, metadata, listings, references, fresh] = await Promise.all([
+        backend.getMintDetails(batch.map((nft) => nft.paymentId)),
+        collection.icrc7_token_metadata(batch.map((nft) => nft.id)),
+        backend.marketListings(batch.map((nft) => nft.id)),
+        backend.mintReferences(batch.map((nft) => nft.paymentId)),
+        collection.icrc7_owner_of(batch.map((nft) => nft.id)),
+      ]);
+      if (isCancelled()) return;
+      const rows = batch.map((nft, index): [bigint, BonsaiDetails] => {
+        const receipt = receipts[index];
+        const version = metadata[index]?.find(([key]) => key === "bonsai:generation_version")?.[1];
+        return [nft.id, {
+          mint: receipt?.nftId === nft.id ? receipt : null,
+          version: version?.__kind__ === "Nat" ? version.Nat : null,
+          listing: listings[index] ?? null,
+          reference: references[index] ?? null,
+          tokenEnabled: policy.token !== undefined,
+        }];
+      });
+      batch.forEach((nft) => loaded.current.add(nft.id));
+      setDetails((previous) => new Map([...previous, ...rows]));
+      setUpdated((previous) => new Map([...previous, ...batch.map((nft, index): [bigint, NftPublic] =>
+        [nft.id, fresh[index] ? { ...nft, owner: fresh[index]!.owner } : nft])]));
+    }
+  }, []);
+
+  // Periodically refreshes cards already loaded (listings and owners change over time).
   useEffect(() => {
     let cancelled = false;
     setError(null);
     const stop = startPolling(async () => {
       try {
-        const [backend, collection] = await Promise.all([backendActor(), icrc7Actor()]);
-        const policy = await backend.marketPolicy();
-        for (let start = 0; start < nfts.length; start += 100) {
-          const batch = nfts.slice(start, start + 100);
-          const [receipts, metadata, listings, references, fresh] = await Promise.all([
-            backend.getMintDetails(batch.map((nft) => nft.paymentId)),
-            collection.icrc7_token_metadata(batch.map((nft) => nft.id)),
-            backend.marketListings(batch.map((nft) => nft.id)),
-            backend.mintReferences(batch.map((nft) => nft.paymentId)),
-            collection.icrc7_owner_of(batch.map((nft) => nft.id)),
-          ]);
-          if (cancelled) return BALANCE_POLL_MS;
-          const loaded = batch.map((nft, index): [bigint, BonsaiDetails] => {
-            const receipt = receipts[index];
-            const version = metadata[index]?.find(([key]) => key === "bonsai:generation_version")?.[1];
-            return [nft.id, {
-              mint: receipt?.nftId === nft.id ? receipt : null,
-              version: version?.__kind__ === "Nat" ? version.Nat : null,
-              listing: listings[index] ?? null,
-              reference: references[index] ?? null,
-              tokenEnabled: policy.token !== undefined,
-            }];
-          });
-          setDetails((previous) => new Map([...previous, ...loaded]));
-          setUpdated((previous) => new Map([...previous, ...batch.map((nft, index): [bigint, NftPublic] =>
-            [nft.id, fresh[index] ? { ...nft, owner: fresh[index]!.owner } : nft])]));
-        }
-      } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        const known = latest.current.filter((nft) => loaded.current.has(nft.id));
+        if (known.length > 0) await load(known, () => cancelled);
       }
+      catch (e: unknown) { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); }
       return BALANCE_POLL_MS;
     });
     return () => { cancelled = true; stop(); };
-  }, [nfts, retry, principal]);
+  }, [load, retry, principal]);
+
+  // New cards (first page, infinite scroll, retries) load once without refetching earlier pages.
+  useEffect(() => {
+    const missing = nfts.filter((nft) => !loaded.current.has(nft.id));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    load(missing, () => cancelled).catch((e: unknown) => {
+      if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+    });
+    return () => { cancelled = true; };
+  }, [nfts, load, retry]);
 
   return (
     <div className="space-y-4">

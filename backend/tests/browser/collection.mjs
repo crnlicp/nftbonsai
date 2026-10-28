@@ -77,6 +77,8 @@ async function fixture(page, count = 4) {
           icrc7_tokens_of: async (_account, before, limit) => nfts.slice(before === null ? 0 : Number(before) + 1,
             (before === null ? 0 : Number(before) + 1) + Number(limit)).map(nft => nft.id),
           getNft: async (id) => nfts[Number(id)],
+          icrc7_total_supply: async () => BigInt(nfts.length),
+          icrc7_balance_of: async (accounts) => accounts.map(() => BigInt(nfts.length)),
           icrc7_owner_of: async (ids) => ids.map(id => ({owner: nfts[Number(id)].owner})),
           icrc7_transfer: async (args) => { nfts[Number(args[0].token_id)].owner = args[0].to.owner; return [{__kind__:"Ok", Ok:1n}]; },
           icrc7_token_metadata: async (ids) => ids.map(id => id % 4n === 3n ? null :
@@ -174,7 +176,15 @@ test("compact cards open accessible modals with full provenance, prices, timesta
   } finally { await browser.close(); }
 });
 
-test("detail failures stay explicit and retryable; both pages batch large collections and preserve pagination", async () => {
+async function scrollUntil(page, count) {
+  for (let attempt = 0; attempt < 40 && await page.locator("article").count() < count; attempt++) {
+    await page.mouse.wheel(0, 20000);
+    await page.waitForTimeout(150);
+  }
+  assert.equal(await page.locator("article").count(), count);
+}
+
+test("detail failures stay explicit and retryable; both pages infinite-scroll in small pages without refetching", async () => {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
@@ -182,29 +192,42 @@ test("detail failures stay explicit and retryable; both pages batch large collec
     await page.addInitScript(() => { globalThis.failMintDetails = true; });
     await page.goto(new URL("/gallery", origin).href);
     await page.getByRole("alert").filter({ hasText: "Mint details test outage" }).waitFor();
-    assert.equal(await page.locator("article").count(), 60);
+    assert.equal(await page.locator("article").count(), 24);
     assert.equal(await page.locator("article").first().getByText("Unavailable", { exact: true }).count(), 1);
+    await page.getByText("Showing 24 of 101 bonsai.").waitFor();
     await page.evaluate(() => { globalThis.failMintDetails = false; });
     await page.getByRole("button", { name: "Retry details" }).click();
     await page.locator("article").first().getByText("19 ICP", { exact: true }).waitFor();
     assert.equal(await page.getByRole("alert").count(), 0);
-    await page.getByRole("button", { name: "Load more bonsai" }).click();
+    const afterRetry = (await page.evaluate(() => globalThis.mintRequests)).length;
+    await scrollUntil(page, 101);
     await page.getByRole("heading", { name: "Bonsai #100", exact: true }).waitFor();
     await page.locator("article").last().getByText("19 ICP", { exact: true }).waitFor();
-    assert.equal(await page.locator("article").count(), 101);
+    await page.getByText("Showing 101 of 101 bonsai.").waitFor();
+    await page.getByText("You've reached the first bonsai ever planted.").waitFor();
+    if (process.env.COLLECTION_SCREENSHOT_DIR) {
+      await mkdir(process.env.COLLECTION_SCREENSHOT_DIR, { recursive: true });
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.screenshot({ path: join(process.env.COLLECTION_SCREENSHOT_DIR, "gallery-infinite-end.png") });
+    }
     assert.equal(await page.getByRole("button", { name: "Load more bonsai" }).count(), 0);
-    const galleryRequests = await page.evaluate(() => globalThis.mintRequests);
-    assert.deepEqual(galleryRequests.slice(-2), [100, 1]);
-    assert.ok(galleryRequests.slice(0, -2).every((count) => count === 60), "initial and retry requests are batched");
+    const scrolled = (await page.evaluate(() => globalThis.mintRequests)).slice(afterRetry);
+    assert.deepEqual(scrolled, [24, 24, 24, 5], "each scroll page loads only its own details");
+
     await page.goto(new URL("/my-nfts", origin).href);
     await page.getByRole("alert").filter({ hasText: "Mint details test outage" }).waitFor();
     await page.evaluate(() => { globalThis.failMintDetails = false; });
     await page.getByRole("button", { name: "Retry details" }).click();
+    await page.locator("article").first().getByText("19 ICP", { exact: true }).waitFor();
+    assert.equal(await page.locator("article").count(), 24);
+    await page.getByText("101 bonsai in your grove").waitFor();
+    // The fallback button works without scrolling (keyboard users, no IntersectionObserver).
+    await page.getByRole("button", { name: "Load more of my bonsai" }).first().click();
+    await scrollUntil(page, 101);
     await page.locator("article").last().getByText("19 ICP", { exact: true }).waitFor();
-    assert.equal(await page.locator("article").count(), 101);
+    assert.equal(await page.getByRole("button", { name: "Load more of my bonsai" }).count(), 0);
     const myRequests = await page.evaluate(() => globalThis.mintRequests);
-    assert.deepEqual(myRequests.slice(-2), [100, 1]);
-    assert.ok(myRequests.slice(0, -2).every((count) => count === 100), "initial and retry requests are batched");
+    assert.ok(myRequests.every((count) => count <= 24), "my bonsai details are fetched per page");
   } finally { await browser.close(); }
 });
 

@@ -1,28 +1,24 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { icrc7Actor } from "../lib/actors";
 import { BonsaiCollection } from "../components/BonsaiCollection";
+import { LoadMore } from "../components/LoadMore";
+import { useCursorList } from "../hooks/useCursorList";
 import type { NftPublic } from "../lib/idl";
 
+export const PAGE_SIZE = 24;
+
 export function Gallery() {
-  const [nfts, setNfts] = useState<NftPublic[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState<bigint | null>(null);
+  const fetchPage = useCallback(async (before: bigint | null) => {
+    const items = await (await icrc7Actor()).listPage(before, BigInt(PAGE_SIZE));
+    return { items, next: items.length === PAGE_SIZE ? items[items.length - 1]!.id : null };
+  }, []);
+  const { items: nfts, hasMore, loading, error, loadMore, refresh } = useCursorList<NftPublic, bigint>({ key: "gallery", fetchPage });
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const ic = await icrc7Actor();
-        const list = await ic.listPage(null, 60n);
-        if (!cancelled) { setNfts(list); setHasMore(list.length === 60); }
-      } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    icrc7Actor().then((ic) => ic.icrc7_total_supply()).then((n) => { if (!cancelled) setTotal(n); }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -30,17 +26,18 @@ export function Gallery() {
       <header>
         <h2 className="font-display text-3xl font-semibold">The grove</h2>
         <p className="text-sm text-slate-400">
-          Explore the collection. {nfts && `${nfts.length} loaded.`}
+          Explore the collection.{" "}
+          {nfts && (total !== null ? `Showing ${nfts.length} of ${total.toString()} bonsai.` : `${nfts.length} loaded.`)}
         </p>
       </header>
 
-      {error && (
-        <div className="glass rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-          {error}
+      {error && nfts === null && (
+        <div role="alert" className="glass rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          {error} <button className="underline" onClick={refresh}>Try again</button>
         </div>
       )}
 
-      {nfts === null && (
+      {nfts === null && !error && (
         <div className="glass p-10 text-center text-slate-400">Loading…</div>
       )}
 
@@ -51,19 +48,13 @@ export function Gallery() {
       )}
 
       {nfts && nfts.length > 0 && (
-        <BonsaiCollection nfts={nfts} />
+        <>
+          <BonsaiCollection nfts={nfts} />
+          <LoadMore hasMore={hasMore} loading={loading} onLoad={() => void loadMore()} label="Load more bonsai"
+            endLabel={nfts.length > PAGE_SIZE ? "You've reached the first bonsai ever planted." : undefined}
+            error={error} onRetry={() => void loadMore()} />
+        </>
       )}
-      {hasMore && <button disabled={loadingMore} className="btn-ghost" onClick={async () => {
-        setLoadingMore(true);
-        try {
-          const last = nfts?.[nfts.length - 1];
-          if (!last) return;
-          const next = await (await icrc7Actor()).listPage(last.id, 60n);
-          setNfts((previous) => [...previous ?? [], ...next]);
-          setHasMore(next.length === 60);
-        } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
-        finally { setLoadingMore(false); }
-      }}>Load more bonsai</button>}
     </div>
   );
 }
