@@ -162,7 +162,7 @@ test("compact cards open accessible modals with full provenance, prices, timesta
       assert.equal(await identities.nth(1).locator("p").innerText(), owner);
       await assertNoOverflow(page);
       await page.keyboard.press("Escape");
-      await page.waitForFunction(() => document.querySelector("dialog") === null);
+      await page.waitForFunction(() => document.querySelector("dialog[aria-labelledby^=bonsai-details]") === null);
       assert.equal(await page.getByRole("dialog").count(), 0);
       assert.ok(await trigger.evaluate((button) => document.activeElement === button), "focus returns to the card");
       for (const name of ["View details for Bonsai #0", "Bonsai #0"]) {
@@ -171,7 +171,7 @@ test("compact cards open accessible modals with full provenance, prices, timesta
         await page.keyboard.press("Enter");
         await modal.waitFor();
         await page.keyboard.press("Escape");
-        await page.waitForFunction(() => document.querySelector("dialog") === null);
+        await page.waitForFunction(() => document.querySelector("dialog[aria-labelledby^=bonsai-details]") === null);
         assert.ok(await opener.evaluate((button) => document.activeElement === button), "focus returns to the image or name");
       }
       for (const index of [1, 3]) {
@@ -198,6 +198,52 @@ async function scrollUntil(page, count) {
   }
   assert.equal(await page.locator("article").count(), count);
 }
+
+test("header stays pinned while scrolling and mobile navigation opens as a sidebar", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 700 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await fixture(page, 12);
+    await page.goto(new URL("/gallery", origin).href);
+    await page.locator("article").first().waitFor();
+    const header = page.getByRole("navigation", { name: "Main" });
+    const menuButton = page.getByRole("button", { name: "Open menu" });
+    assert.equal(await menuButton.isVisible(), false, "desktop keeps inline links");
+    for (const width of [1280, 390, 320]) {
+      await page.setViewportSize({ width, height: 700 });
+      await page.evaluate(() => window.scrollTo(0, 1200));
+      await page.waitForFunction(() => window.scrollY > 0);
+      const box = await header.boundingBox();
+      assert.ok(box.y >= 0 && box.y < 24, `header pinned at ${width}px (y=${box.y})`);
+      await assertNoOverflow(page);
+    }
+    const drawer = page.getByRole("dialog", { name: "Menu" });
+    assert.equal(await drawer.isVisible(), false);
+    await menuButton.click();
+    await drawer.waitFor();
+    await drawer.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+    const panel = await drawer.boundingBox();
+    assert.ok(panel.x + panel.width <= 320 + 1 && panel.height >= 699, "sidebar fills the right edge");
+    assert.equal(await drawer.getByRole("button", { name: /^Sign (in|out)$/ }).count(), 1);
+    await page.keyboard.press("Escape");
+    await drawer.waitFor({ state: "hidden" });
+    await menuButton.click();
+    await page.mouse.click(5, 350);
+    await drawer.waitFor({ state: "hidden" });
+    await menuButton.click();
+    await drawer.getByRole("link", { name: "My bonsai", exact: true }).click();
+    await page.waitForURL(/\/my-nfts$/);
+    await drawer.waitFor({ state: "hidden" });
+    await menuButton.click();
+    await page.setViewportSize({ width: 1280, height: 700 });
+    await drawer.waitFor({ state: "hidden" });
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});
 
 test("hearts show like counts, toggle optimistically in cards and the modal, and roll back on errors", async () => {
   const browser = await chromium.launch();

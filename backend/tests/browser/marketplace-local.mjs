@@ -70,7 +70,7 @@ test("signed local marketplace renders real listings, sending and responsive lan
     await modal.getByRole("button", { name: "Confirm listing", exact: true }).click();
     await modal.getByRole("button", { name: "Cancel listing", exact: true }).waitFor();
     await page.keyboard.press("Escape");
-    await page.waitForFunction(() => !document.querySelector("dialog"));
+    await page.waitForFunction(() => !document.querySelector("dialog[aria-labelledby^=bonsai-details]"));
     await card.getByRole("button", { name: "Details", exact: true }).waitFor();
     await page.getByRole("region", { name: "Marketplace activity" }).getByText("For sale", { exact: true }).waitFor();
     await capture("listed-collection");
@@ -94,7 +94,7 @@ test("signed local marketplace renders real listings, sending and responsive lan
     await modal.getByRole("button", { name: "Confirm send bonsai", exact: true }).scrollIntoViewIfNeeded();
     await capture("send-review");
     await modal.getByRole("button", { name: "Confirm send bonsai", exact: true }).click();
-    await page.waitForFunction(() => !document.querySelector("dialog"));
+    await page.waitForFunction(() => !document.querySelector("dialog[aria-labelledby^=bonsai-details]"));
     await page.waitForFunction(() => document.querySelectorAll("article").length === 0);
     await page.goto(new URL("/", liveOrigin).href);
     await page.getByRole("link", { name: /Explore.*BONSAI/i }).waitFor();

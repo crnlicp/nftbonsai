@@ -51,7 +51,7 @@ export function MyNFTs() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-3xl font-semibold">My bonsai</h2>
           <p className="text-sm text-slate-400">

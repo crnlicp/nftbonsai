@@ -112,3 +112,26 @@
 .price-range:active::-webkit-slider-thumb { transform: scale(1.15); }
 .price-range:focus-visible::-webkit-slider-thumb { outline: 2px solid #f8fafc; outline-offset: 3px; }
 .price-range:focus-visible::-moz-range-thumb { outline: 2px solid #f8fafc; outline-offset: 3px; }
+
+@layer components {
+  .drawer[open] {
+    animation: drawer-in 0.22s ease-out;
+  }
+  .drawer[open]::backdrop {
+    animation: drawer-fade 0.22s ease-out;
+  }
+  @keyframes drawer-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes drawer-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .drawer[open],
+    .drawer[open]::backdrop {
+      animation: none;
+    }
+  }
+}
