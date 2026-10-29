@@ -10,11 +10,20 @@
   }
   body {
     @apply font-body text-slate-100 antialiased;
+    background-color: #07121a;
+  }
+  /* iOS Safari ignores background-attachment: fixed and stretches the gradient over the whole
+     page, which tiles badly under the sticky blurred header. A fixed layer behaves everywhere. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background:
       radial-gradient(1200px 800px at 10% -10%, rgba(56, 161, 105, 0.22), transparent 60%),
       radial-gradient(1000px 700px at 95% 110%, rgba(67, 56, 202, 0.28), transparent 55%),
       linear-gradient(135deg, #07121a 0%, #0b1f1c 45%, #0b1230 100%);
-    background-attachment: fixed;
   }
 }
 
