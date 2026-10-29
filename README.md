@@ -155,6 +155,17 @@ loaded, so scroll position is kept. The shared logic lives in
 [useCursorList.ts](frontend/src/hooks/useCursorList.ts) and
 [LoadMore.tsx](frontend/src/components/LoadMore.tsx).
 
+### Likes
+
+Every card and details modal has a heart showing the bonsai's like count.
+Signed-in users like or unlike with one click (optimistic, rolled back with an
+error if the call fails); signed-out visitors see counts and are prompted to sign
+in. Likes are stored on-chain in the backend (`likes` stable state, migration
+`20261028_140000`): one like per principal per bonsai, no likes from the anonymous
+principal. `setLike(nftId, liked)` is idempotent and verifies the bonsai with the
+NFT canister on its first like; `likeStats(ids)` (up to 100) returns `count` and
+whether the caller `liked` each one, and is fetched with the other card details.
+
 ### Canister IDs and wallets (`/collection`)
 
 The `/collection` page (linked from the Wallet page, My bonsai, the Send tab and

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Listing, MintDetails, Reference } from "../bindings/backend";
+import type { Listing, MintDetails, Reference, Stat } from "../bindings/backend";
 import type { NftPublic } from "../lib/idl";
 import { formatIcp } from "../lib/ledger";
 import { bonsaiDescription } from "../lib/render";
@@ -8,6 +8,7 @@ import { BonsaiSvg } from "./BonsaiSvg";
 import { MarketControls } from "./MarketControls";
 import { useAuthContext } from "./AuthProvider";
 import { isListed, marketPrice } from "../lib/marketplace";
+import { LikeButton, useLike } from "./LikeButton";
 
 export interface BonsaiDetails {
   mint: MintDetails | null;
@@ -15,6 +16,7 @@ export interface BonsaiDetails {
   listing: Listing | null;
   reference: Reference | null;
   tokenEnabled: boolean;
+  like: Stat | null;
 }
 
 function PrincipalId({ value }: { value: string }) {
@@ -106,6 +108,7 @@ export function BonsaiCard({ nft, details, failed, onChange }: {
   const tabbed = !!details && !failed && !listed && principal === owner;
   const activeTab: DetailTab = tabbed ? tab : "info";
   const openDetails = () => { setTab("info"); setOpen(true); };
+  const like = useLike(nft.id, details?.like);
 
   return (
     <>
@@ -124,7 +127,9 @@ export function BonsaiCard({ nft, details, failed, onChange }: {
               <span aria-hidden="true" className="mr-1">✦</span>Lucky bloom
             </span>
           )}
+          <LikeButton like={like} className="absolute bottom-3 right-6" />
         </div>
+        {like.error && <p role="alert" className="px-4 pt-2 text-xs text-red-200">{like.error}</p>}
         <div className="flex flex-1 flex-col gap-3 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 id={`bonsai-${nft.id}`} className="font-display text-xl font-semibold">
@@ -163,7 +168,9 @@ export function BonsaiCard({ nft, details, failed, onChange }: {
               <div className="flex flex-wrap gap-2">
                 {tier && <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium" style={{ color: tier.aura }}>{tier.name}</span>}
                 {mint?.lucky && <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs text-amber-200">Lucky bloom</span>}
+                <LikeButton like={like} className="ml-auto" />
               </div>
+              {like.error && <p role="alert" className="text-xs text-red-200">{like.error}</p>}
               <p className="text-sm capitalize leading-relaxed text-slate-300">{description}.</p>
               {tabbed && (
                 <div role="tablist" aria-label="Bonsai actions" className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-black/20 p-1">

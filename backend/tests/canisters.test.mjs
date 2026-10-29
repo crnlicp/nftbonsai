@@ -313,6 +313,32 @@ test("marketplace upgrades the deployed pre-marketplace artifacts preserving pur
     assert.ok("active" in listing.phase);
     await f.pic.upgradeCanister({ sender: owner, canisterId: f.nftId, wasm: wasm("icrc7"), arg: emptyArgs, upgradeModeOptions });
     assert.equal((await f.nft.saleLock(nftId))[0].listingId, listing.id);
+    assert.deepEqual(await f.backend.setLike(nftId, true), { ok: { count: 1n, liked: true } }, "migrated backend accepts likes");
+  } finally { await f.pic.tearDown(); }
+});
+
+test("likes are per principal, idempotent, verified against the collection and survive upgrades", async () => {
+  const f = await fixture({ ledger: true });
+  try {
+    const nftId = (await mintedForMarket(f)).nftId[0];
+    f.backend.setPrincipal(Principal.anonymous());
+    assert.deepEqual(await f.backend.setLike(nftId, true), { err: "Sign in to like bonsai" });
+    assert.deepEqual(await f.backend.likeStats([nftId]), [{ count: 0n, liked: false }]);
+    f.backend.setPrincipal(owner);
+    assert.deepEqual(await f.backend.setLike(nftId + 99n, true), { err: "Unknown bonsai" });
+    assert.deepEqual(await f.backend.likeStats([nftId + 99n]), [{ count: 0n, liked: false }]);
+    assert.deepEqual(await f.backend.setLike(nftId, true), { ok: { count: 1n, liked: true } });
+    assert.deepEqual(await f.backend.setLike(nftId, true), { ok: { count: 1n, liked: true } }, "liking twice counts once");
+    f.backend.setPrincipal(buyer);
+    assert.deepEqual(await f.backend.setLike(nftId, true), { ok: { count: 2n, liked: true } });
+    assert.deepEqual(await f.backend.setLike(nftId, false), { ok: { count: 1n, liked: false } });
+    assert.deepEqual(await f.backend.setLike(nftId, false), { ok: { count: 1n, liked: false } }, "unliking twice is a no-op");
+    await assert.rejects(f.backend.likeStats(Array.from({ length: 101 }, (_, i) => BigInt(i))));
+    await f.pic.upgradeCanister({ sender: owner, canisterId: f.backendId, wasm: wasm("backend"), arg: emptyArgs, upgradeModeOptions });
+    f.backend.setPrincipal(owner);
+    assert.deepEqual(await f.backend.likeStats([nftId, nftId + 99n]), [{ count: 1n, liked: true }, { count: 0n, liked: false }]);
+    f.backend.setPrincipal(Principal.anonymous());
+    assert.deepEqual(await f.backend.likeStats([nftId]), [{ count: 1n, liked: false }], "anonymous viewers see counts");
   } finally { await f.pic.tearDown(); }
 });
 

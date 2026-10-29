@@ -6,7 +6,9 @@ import { BALANCE_POLL_MS, startPolling } from "../lib/polling";
 import { useAuthContext } from "./AuthProvider";
 
 export function BonsaiCollection({ nfts, onChange }: { nfts: NftPublic[]; onChange?: () => void }) {
-  const { principal } = useAuthContext();
+  const { principal, identity } = useAuthContext();
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
   const [updated, setUpdated] = useState<Map<bigint, NftPublic>>(new Map());
   const [details, setDetails] = useState<Map<bigint, BonsaiDetails>>(new Map());
   const [error, setError] = useState<string | null>(null);
@@ -18,16 +20,20 @@ export function BonsaiCollection({ nfts, onChange }: { nfts: NftPublic[]; onChan
 
   // Fetches receipts, metadata, listings and live owners for `list` in batches of 100.
   const load = useCallback(async (list: NftPublic[], isCancelled: () => boolean) => {
-    const [backend, collection] = await Promise.all([backendActor(), icrc7Actor()]);
+    const [backend, collection, viewer] = await Promise.all([
+      backendActor(), icrc7Actor(), identityRef.current ? backendActor(identityRef.current) : backendActor(),
+    ]);
     const policy = await backend.marketPolicy();
     for (let start = 0; start < list.length; start += 100) {
       const batch = list.slice(start, start + 100);
-      const [receipts, metadata, listings, references, fresh] = await Promise.all([
+      const [receipts, metadata, listings, references, fresh, likes] = await Promise.all([
         backend.getMintDetails(batch.map((nft) => nft.paymentId)),
         collection.icrc7_token_metadata(batch.map((nft) => nft.id)),
         backend.marketListings(batch.map((nft) => nft.id)),
         backend.mintReferences(batch.map((nft) => nft.paymentId)),
         collection.icrc7_owner_of(batch.map((nft) => nft.id)),
+        // Likes are optional: older backends without the method still show cards.
+        viewer.likeStats(batch.map((nft) => nft.id)).catch(() => null),
       ]);
       if (isCancelled()) return;
       const rows = batch.map((nft, index): [bigint, BonsaiDetails] => {
@@ -39,6 +45,7 @@ export function BonsaiCollection({ nfts, onChange }: { nfts: NftPublic[]; onChan
           listing: listings[index] ?? null,
           reference: references[index] ?? null,
           tokenEnabled: policy.token !== undefined,
+          like: likes?.[index] ?? null,
         }];
       });
       batch.forEach((nft) => loaded.current.add(nft.id));

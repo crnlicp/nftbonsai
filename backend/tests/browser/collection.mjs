@@ -31,6 +31,8 @@ async function fixture(page, count = 4) {
         traits: { trunkStyle: i % 5, leafColor: i % 8, branchCount: 4 }
       }));
       globalThis.mintRequests = [];
+      const likes = new Map();
+      const who = () => globalThis.marketBuyer ? "${creator}" : "${owner}";
       let sale = null;
       const makeListing = (nftId, price) => ({
         id: 1n, nftId, seller: owner, buyer: undefined, currency: "icp", ledger: owner,
@@ -43,6 +45,19 @@ async function fixture(page, count = 4) {
       export function artLabActor() { throw new Error("Art lab is outside this fixture"); }
       export async function backendActor() {
         return {
+          likeStats: async (ids) => ids.map(id => {
+            const set = likes.get(id) ?? new Set();
+            return { count: BigInt(set.size + (id === 1n ? 41 : 0)), liked: set.has(who()) };
+          }),
+          setLike: async (id, liked) => {
+            globalThis.likeCalls = (globalThis.likeCalls ?? 0) + 1;
+            await new Promise((r) => setTimeout(r, 150));
+            if (globalThis.failLike) return { __kind__: "err", err: "Like test outage" };
+            const set = likes.get(id) ?? new Set();
+            liked ? set.add(who()) : set.delete(who());
+            likes.set(id, set);
+            return { __kind__: "ok", ok: { count: BigInt(set.size + (id === 1n ? 41 : 0)), liked } };
+          },
           marketPolicy: async () => ({feeBps: 200n, maxMultiple: 2n, token: {ledger: owner}}),
           marketListings: async (ids) => ids.map(id => sale?.nftId === id ? sale : null),
           mintReferences: async (keys) => keys.map(() => ({icp: 1900000000n, token: 1900000000000n})),
@@ -183,6 +198,52 @@ async function scrollUntil(page, count) {
   }
   assert.equal(await page.locator("article").count(), count);
 }
+
+test("hearts show like counts, toggle optimistically in cards and the modal, and roll back on errors", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+    await fixture(page);
+    await page.goto(new URL("/gallery", origin).href);
+    const cards = page.locator("article");
+    const heart = (n) => cards.nth(n).getByRole("button", { name: /likes\)$/ });
+    await page.getByRole("button", { name: "Like (41 likes)" }).waitFor();
+    assert.equal(await heart(0).getAttribute("aria-pressed"), "false");
+    await heart(0).click();
+    await cards.nth(0).getByRole("button", { name: "Unlike (1 likes)", disabled: false }).waitFor();
+    assert.equal(await heart(0).getAttribute("aria-pressed"), "true");
+    await cards.nth(1).getByRole("button", { name: "Details", exact: true }).click();
+    const modal = page.getByRole("dialog", { name: "Bonsai #1", exact: true });
+    await modal.getByRole("button", { name: "Like (41 likes)" }).click();
+    await modal.getByRole("button", { name: "Unlike (42 likes)", disabled: false }).waitFor();
+    await page.keyboard.press("Escape");
+    await cards.nth(1).getByRole("button", { name: "Unlike (42 likes)" }).waitFor();
+    await page.evaluate(() => { globalThis.failLike = true; });
+    await heart(2).click();
+    await cards.nth(2).getByRole("alert").filter({ hasText: "Like test outage" }).waitFor();
+    await cards.nth(2).getByRole("button", { name: "Like (0 likes)" }).waitFor();
+    assert.equal(await page.evaluate(() => globalThis.likeCalls), 3, "only the clicked hearts call the backend");
+    await cards.nth(0).getByRole("button", { name: "Unlike (1 likes)" }).waitFor();
+    await cards.nth(1).getByRole("button", { name: "Unlike (42 likes)" }).waitFor();
+    assert.equal(await page.getByRole("alert").count(), 1, "only the failed card shows an error");
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    const dir = process.env.COLLECTION_SCREENSHOT_DIR;
+    if (dir) {
+      await mkdir(dir, { recursive: true });
+      await page.evaluate(() => { globalThis.failLike = false; });
+      await heart(2).click();
+      await cards.nth(2).getByRole("button", { name: "Unlike (1 likes)", disabled: false }).waitFor();
+      assert.equal(await page.getByRole("alert").count(), 0, "a successful retry clears the error");
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: join(dir, "likes-cards-mobile.png") });
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.screenshot({ path: join(dir, "likes-cards-desktop.png") });
+      await cards.nth(1).getByRole("button", { name: "Details", exact: true }).click();
+      await modal.locator("img").evaluate((img) => img.decode()).catch(() => {});
+      await page.screenshot({ path: join(dir, "likes-modal-desktop.png") });
+    }
+  } finally { await browser.close(); }
+});
 
 test("detail failures stay explicit and retryable; both pages infinite-scroll in small pages without refetching", async () => {
   const browser = await chromium.launch();

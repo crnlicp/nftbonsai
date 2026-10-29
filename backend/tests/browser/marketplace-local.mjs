@@ -40,6 +40,12 @@ test("signed local marketplace renders real listings, sending and responsive lan
     await page.getByRole("heading", { name: /^Your bonsai #/ }).waitFor({ timeout: 60_000 });
     await page.goto(new URL("/my-nfts", liveOrigin).href);
     const card = page.locator("article").first();
+    const heart = card.getByRole("button", { name: /^Like \(\d+ likes\)$/ });
+    const before = Number((await heart.getAttribute("aria-label")).match(/\d+/)[0]);
+    await heart.click();
+    await card.getByRole("button", { name: `Unlike (${before + 1} likes)`, disabled: false }).waitFor({ timeout: 30_000 });
+    await page.reload();
+    await card.getByRole("button", { name: `Unlike (${before + 1} likes)` }).waitFor({ timeout: 30_000 });
     await card.getByRole("button", { name: "Details", exact: true }).click();
     const name = await card.getByRole("heading").innerText();
     const modal = page.getByRole("dialog");

@@ -4,6 +4,11 @@ type Token =
    market: principal;
    symbol: text;
  };
+type Stat =
+ record {
+   count: nat;
+   liked: bool;
+ };
 type Result_2 =
  variant {
    err: PaymentError;
@@ -178,6 +183,8 @@ service : {
   createPurchase: (eur: nat) -> (Result_2);
   getMintDetails: (keys: vec text) -> (vec opt MintDetails) query;
   getMyPurchases: () -> (vec Purchase) query;
+  /// Like counts for up to 100 bonsai, plus whether the caller liked each.
+  likeStats: (ids: vec nat) -> (vec Stat) query;
   listBonsai: (nftId: nat, currency: Currency, price: nat) ->
    (variant {
       err: text;
@@ -226,6 +233,11 @@ service : {
                                err: text;
                                ok: Listing;
                              });
+  /// Idempotently likes (`liked = true`) or unlikes a bonsai for the signed-in caller.
+  setLike: (nftId: nat, liked: bool) -> (variant {
+                                           err: text;
+                                           ok: Stat;
+                                         });
   setTierPrices: (method: Method, anchors: vec nat) -> (Result_1);
   setToken: (token: opt Token) -> (Result_1);
   tokenStats: () ->
