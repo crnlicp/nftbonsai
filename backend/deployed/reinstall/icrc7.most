@@ -85,6 +85,19 @@ type NewActor__220072593 =
     tokenApprovals : Map__230067015<Nat, [Approval__739454996]>;
     tokens : Map__230067015<Nat, Token__297569429>
   };
+type NewActor__273063467 =
+  {
+    saleDeliveries :
+      Map__230067015<Nat,
+                      {
+                        block : Nat;
+                        buyer : Principal;
+                        listingId : Nat;
+                        seller : Principal;
+                        tokenId : Nat
+                      }>;
+    saleLocks : Map__230067015<Nat, {listingId : Nat; seller : Principal}>
+  };
 type NewActor__486988 =
   {mintRecipients : Map__230067015<Text, {tier : Nat; to : Principal}>};
 type NftRecord__1007593653 =
@@ -101,11 +114,21 @@ type OT__22147864 = ?T__321646963;
 type OldActor__493289942 =
   {mintRecipients : Map__230067015<Text, {amount : Nat; to : Principal}>};
 type OldActor__556294753 = {};
+type OldActor__709598930 = {};
 type Pad__1061117395 = {center : Point__488499537; rx : Int; ry : Int};
 type Point__488499537 = {x : Int; y : Int};
 type Point__960723337 = {x : Int; y : Int};
 type Prefix__515036283 = [Nat8];
 type Prefix__846339658 = [Nat8];
+type SaleDelivery__878059095 =
+  {
+    block : Nat;
+    buyer : Principal;
+    listingId : Nat;
+    seller : Principal;
+    tokenId : Nat
+  };
+type SaleLock__236848770 = {listingId : Nat; seller : Principal};
 type Segment__22677209 =
   {end : Point__488499537; start : Point__488499537; width : Int};
 type Store__398375314 = {var tree : Tree__761691833};
@@ -174,7 +197,8 @@ type Value__861660870 =
   };
 {
   "20261021_134000" : (_old : OldActor__556294753) -> NewActor__220072593;
-  "20261022_150000" : (old : OldActor__493289942) -> NewActor__486988
+  "20261022_150000" : (old : OldActor__493289942) -> NewActor__486988;
+  "20261028_090000" : (_old : OldActor__709598930) -> NewActor__273063467
 }
 actor  {
   stable artwork :
@@ -202,6 +226,16 @@ actor  {
   stable mintRecipients :
     {
       var root : Node__204828119<Text, {tier : Nat; to : Principal}>;
+      var size : Nat__227979830
+    };
+  stable saleDeliveries :
+    {
+      var root : Node__204828119<Nat, SaleDelivery__878059095>;
+      var size : Nat__227979830
+    };
+  stable saleLocks :
+    {
+      var root : Node__204828119<Nat, SaleLock__236848770>;
       var size : Nat__227979830
     };
   stable silhouettes :

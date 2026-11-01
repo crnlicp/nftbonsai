@@ -1,4 +1,6 @@
 // Version: 4.0.0
+type Currency__683188854 = {#icp; #token};
+type Currency__852577288 = {#icp; #token};
 type Data__44217153<K, V> = {var count : Nat__227979830; kvs : [var ?(K, V)]};
 type Data__846125122<T> = {var count : Nat__227979830; elements : [var ?T]};
 type Fulfillment__527834283 =
@@ -15,6 +17,62 @@ type Internal__283199666<K, V> =
   {children : [var ?Node__204828119<K, V>]; data : Data__44217153<K, V>};
 type Leaf__598469445<K, V> = {data : Data__44217153<K, V>};
 type Leaf__948582970<T> = {data : Data__846125122<T>};
+type Listing__420857924 =
+  {
+    appFee : Nat;
+    buyer : ?Principal;
+    createdAt : Int;
+    currency : Currency__683188854;
+    deliveryBlock : ?Nat;
+    error : ?Text;
+    fee : Nat;
+    feeBlock : ?Nat;
+    feeTime : ?Nat64;
+    id : Nat;
+    ledger : Principal;
+    nftId : Nat;
+    payTime : ?Nat64;
+    paymentBlock : ?Nat;
+    paymentUncertain : Bool;
+    payoutBlock : ?Nat;
+    payoutTime : ?Nat64;
+    payoutUncertain : Bool;
+    phase : Phase__619318318;
+    price : Nat;
+    proceeds : Nat;
+    revision : Nat;
+    seller : Principal;
+    sweepFee : ?Nat;
+    updatedAt : Int
+  };
+type Listing__827978690 =
+  {
+    appFee : Nat;
+    buyer : ?Principal;
+    createdAt : Int;
+    currency : Currency__852577288;
+    deliveryBlock : ?Nat;
+    error : ?Text;
+    fee : Nat;
+    feeBlock : ?Nat;
+    feeTime : ?Nat64;
+    id : Nat;
+    ledger : Principal;
+    nftId : Nat;
+    payTime : ?Nat64;
+    paymentBlock : ?Nat;
+    paymentUncertain : Bool;
+    payoutBlock : ?Nat;
+    payoutTime : ?Nat64;
+    payoutUncertain : Bool;
+    phase : Phase__958300732;
+    price : Nat;
+    proceeds : Nat;
+    revision : Nat;
+    seller : Principal;
+    sweepFee : ?Nat;
+    updatedAt : Int
+  };
 type Map__230067015<K, V> = Map__405889023<K, V>;
 type Map__405889023<K, V> = Map__603270868<K, V>;
 type Map__603270868<K, V> =
@@ -82,6 +140,17 @@ type NewActor__860456320 =
         var token : ?Token__424138741;
         var tokenTiers : [Nat]
       }
+  };
+type NewActor__865493712 =
+  {
+    market :
+      {
+        current : Map__230067015<Nat, Nat>;
+        listings : Map__230067015<Nat, Listing__420857924>;
+        var nextId : Nat;
+        references : Map__230067015<Text, Reference__1002157740>
+      };
+    paw : Paw__465180868
   };
 type NewPurchase__331626814 =
   {
@@ -170,6 +239,7 @@ type OldActor__27905617 =
       }
   };
 type OldActor__362651990 = {};
+type OldActor__693408124 = {paw : Paw__465180868};
 type OldActor__891444202 =
   {
     paw :
@@ -219,6 +289,71 @@ type OldPurchase__500627040 =
     ledgerBlock : ?Nat;
     lucky : Bool;
     method : {#icp; #paw};
+    nextCheck : Int;
+    nftId : ?Nat;
+    payTime : ?Nat64;
+    paymentStatus : Text;
+    sandbox : Bool;
+    seed : ?Blob;
+    sequence : Nat;
+    tier : Nat;
+    updatedAt : Int
+  };
+type Paw__465180868 =
+  {
+    var apiKey : Text;
+    var asset : Text;
+    var counter : Nat;
+    var cursor : Nat;
+    var icpTiers : [Nat];
+    pending : Set__70493310<Text>;
+    purchases : Map__230067015<Text, Purchase__203260283>;
+    var redirect : Text;
+    var sandbox : Bool;
+    var token : ?{ledger : Principal; market : Principal; symbol : Text};
+    var tokenTiers : [Nat]
+  };
+type Phase__619318318 =
+  {
+    #active;
+    #cancelled;
+    #cancelling;
+    #collecting;
+    #delivering;
+    #locking;
+    #paying;
+    #review;
+    #sold
+  };
+type Phase__958300732 =
+  {
+    #active;
+    #cancelled;
+    #cancelling;
+    #collecting;
+    #delivering;
+    #locking;
+    #paying;
+    #review;
+    #sold
+  };
+type Purchase__203260283 =
+  {
+    amountE8s : ?Nat;
+    amountEur : Nat;
+    artTier : ?Nat;
+    attempts : Nat;
+    caller : Principal;
+    checkoutUrl : ?Text;
+    createdAt : Int;
+    fulfillment :
+      {#awaiting; #closed; #creating; #minted; #minting; #paid; #review};
+    id : Text;
+    invoiceId : ?Text;
+    lastError : ?Text;
+    ledgerBlock : ?Nat;
+    lucky : Bool;
+    method : {#icp; #paw; #token};
     nextCheck : Int;
     nftId : ?Nat;
     payTime : ?Nat64;
@@ -301,6 +436,8 @@ type Purchase__538656523 =
     tier : Nat;
     updatedAt : Int
   };
+type Reference__1002157740 = {icp : Nat; token : Nat};
+type Reference__1067979846 = {icp : Nat; token : Nat};
 type Set__1053317950<T> =
   {var root : Node__620761243<T>; var size : Nat__227979830};
 type Set__70493310<T> = Set__1053317950<T>;
@@ -312,9 +449,20 @@ type Token__424138741 =
   "20261021_134000" : (_old : OldActor__362651990) -> NewActor__284150510;
   "20261022_150000" : (old : OldActor__891444202) -> NewActor__604328090;
   "20261022_160000" : (old : OldActor__27905617) -> NewActor__385713542;
-  "20261027_230000" : (old : OldActor__115562095) -> NewActor__860456320
+  "20261027_230000" : (old : OldActor__115562095) -> NewActor__860456320;
+  "20261028_090000" : (old : OldActor__693408124) -> NewActor__865493712;
+  "20261028_140000" :
+    {} -> {likes : {likers : Map__230067015<Nat, Set__70493310<Principal>>}}
 }
 actor  {
+  stable likes : {likers : Map__230067015<Nat, Set__70493310<Principal>>};
+  stable market :
+    {
+      current : Map__230067015<Nat, Nat>;
+      listings : Map__230067015<Nat, Listing__827978690>;
+      var nextId : Nat;
+      references : Map__230067015<Text, Reference__1067979846>
+    };
   stable paw :
     {
       var apiKey : Text;
