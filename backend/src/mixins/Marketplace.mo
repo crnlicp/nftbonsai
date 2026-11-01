@@ -90,8 +90,8 @@ mixin (market : Types.State, paw : Payments.State, self : Principal) {
     } finally { scanning := false };
   };
 
-  public query func marketPolicy() : async { feeBps : Nat; maxMultiple : Nat; token : ?Payments.Token } {
-    { feeBps = 200; maxMultiple = 2; token = paw.token };
+  public query func marketPolicy() : async { feeBps : Nat; maxIncreaseBps : Nat; token : ?Payments.Token } {
+    { feeBps = 200; maxIncreaseBps = 5_000; token = paw.token };
   };
   public query func marketListings(ids : [Nat]) : async [?Types.Listing] {
     if (ids.size() > 100) Runtime.trap("Request at most 100 listings");
@@ -104,14 +104,31 @@ mixin (market : Types.State, paw : Payments.State, self : Principal) {
       .sort(func(a, b) = Nat.compare(b.id, a.id));
     Array.tabulate(Nat.min(50, rows.size()), func i = rows[i]);
   };
+  // Latest delivered sale per bonsai. Listing IDs only grow, so later rows win.
+  func lastSales() : Map.Map<Nat, Types.Listing> {
+    let sales = Map.empty<Nat, Types.Listing>();
+    for (l in market.listings.values()) if (l.deliveryBlock != null) sales.add(l.nftId, l);
+    sales;
+  };
+  // What the current owner paid: the last marketplace sale, else the mint reference.
+  func buyReference(sales : Map.Map<Nat, Types.Listing>, nftId : Nat, mint : Types.Reference) : Types.Reference {
+    switch (sales.get(nftId)) {
+      case (?sale) Policy.resale(mint, sale.currency, sale.price);
+      case null mint;
+    };
+  };
+  /// Buy-price references (last sale, else original mint) that cap listing prices at 1.5x.
   public query func mintReferences(keys : [Text]) : async [?Types.Reference] {
     if (keys.size() > 100) Runtime.trap("Request at most 100 references");
+    let sales = lastSales();
     keys.map(func key {
       var id = "";
       for (part in key.split(#char ':')) id := part;
       let ?p = paw.purchases.get(id) else return null;
-      if (p.fulfillment != #minted or p.nftId == null) return null;
-      market.references.get(id);
+      let ?nftId = p.nftId else return null;
+      if (p.fulfillment != #minted) return null;
+      let ?mint = market.references.get(id) else return null;
+      ?buyReference(sales, nftId, mint);
     });
   };
   func selectedLedger<system>(currency : Types.Currency) : ?Principal {
@@ -132,8 +149,9 @@ mixin (market : Types.State, paw : Payments.State, self : Principal) {
     for (part in token.paymentId.split(#char ':')) purchaseId := part;
     let ?p = paw.purchases.get(purchaseId) else return #err("Original mint receipt unavailable; sending is still available");
     if (p.fulfillment != #minted or p.nftId != ?nftId) return #err("Original mint receipt does not match");
-    let ?reference = market.references.get(p.id) else return #err("Original mint reference unavailable");
-    if (price > Policy.cap(reference, currency)) return #err("Price exceeds 2x original mint reference");
+    let ?mint = market.references.get(p.id) else return #err("Original mint reference unavailable");
+    let reference = buyReference(lastSales(), nftId, mint);
+    if (price > Policy.cap(reference, currency)) return #err("Price exceeds 1.5x the last buy price");
     let fee = await ledger(ledgerId).icrc1_fee();
     let appFee = Policy.appFee(price);
     if (appFee == 0 or price <= appFee + fee) return #err("Price must cover the app fee and payout network fee");

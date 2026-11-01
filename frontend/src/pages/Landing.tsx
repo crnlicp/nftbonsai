@@ -35,7 +35,7 @@ export function Landing() {
           },
           {
             title: "2. Collect & trade",
-            body: "Find a listed bonsai in the grove, or sell yours for ICP or $BONSAI. Prices are capped at 2x the original mint reference, with a 2% seller fee and no listing fee. Network fees apply.",
+            body: "Find a listed bonsai in the grove, or sell yours for ICP or $BONSAI. Prices are capped at 1.5x the last buy price, with a 2% seller fee and no listing fee. Network fees apply.",
           },
           {
             title: "3. Own it. Share it.",

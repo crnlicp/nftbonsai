@@ -134,7 +134,7 @@ async function mintedForMarket(f, units = 19n) {
   return purchase;
 }
 
-test("marketplace enforces immutable caps, ownership locks and single-buyer settlement with isolated fees", async () => {
+test("marketplace caps listings at 1.5x the buy price, ownership locks and single-buyer settlement with isolated fees", async () => {
   const f = await fixture({ ledger: true, token: true });
   try {
     const purchase = await mintedForMarket(f, 30n);
@@ -144,7 +144,7 @@ test("marketplace enforces immutable caps, ownership locks and single-buyer sett
     assert.deepEqual(reference, { icp: 30n * E8S, token: 30_000n * E8S });
     await f.backend.setTierPrices({ icp: null }, [90n, 190n, 490n, 990n, 2490n]);
     assert.deepEqual((await f.backend.mintReferences([token.paymentId]))[0][0], reference);
-    assert.match((await f.backend.listBonsai(nftId, { icp: null }, 60n * E8S + 1n)).err, /2x/);
+    assert.match((await f.backend.listBonsai(nftId, { icp: null }, 45n * E8S + 1n)).err, /1\.5x/);
     assert.match((await f.backend.listBonsai(nftId, { icp: null }, 0n)).err, /positive/);
     const listing = (await f.backend.listBonsai(nftId, { icp: null }, 40n * E8S)).ok;
     assert.ok("active" in listing.phase);
@@ -167,7 +167,8 @@ test("marketplace enforces immutable caps, ownership locks and single-buyer sett
     const replay = (await f.backend.buyBonsai(listing.id, listing.revision, 10_000n)).ok;
     assert.deepEqual(replay, sale);
     assert.equal(await f.icp.icrc1_balance_of(account(buyer)), before - sale.price - 10_000n);
-    assert.match((await f.backend.listBonsai(nftId, { icp: null }, 60n * E8S + 1n)).err, /2x/);
+    assert.deepEqual((await f.backend.mintReferences([token.paymentId]))[0][0], { icp: 40n * E8S, token: 40_000n * E8S }, "resale becomes the new buy price");
+    assert.match((await f.backend.listBonsai(nftId, { icp: null }, 60n * E8S + 1n)).err, /1\.5x/);
     const relisted = (await f.backend.listBonsai(nftId, { icp: null }, 60n * E8S)).ok;
     assert.ok("active" in relisted.phase);
     assert.ok("cancelled" in (await f.backend.cancelListing(relisted.id)).ok.phase);
@@ -348,7 +349,7 @@ test("marketplace cross-currency token sales use pinned ledgers and caps, not cu
     await f.backend.setToken([{ ledger: f.tokenId, market: f.tokenId, symbol: "BONSAI" }]);
     const purchase = await mintedForMarket(f, 19n);
     const nftId = purchase.nftId[0];
-    assert.match((await f.backend.listBonsai(nftId, { token: null }, 38_000n * E8S + 1n)).err, /2x/);
+    assert.match((await f.backend.listBonsai(nftId, { token: null }, 28_500n * E8S + 1n)).err, /1\.5x/);
     const listing = (await f.backend.listBonsai(nftId, { token: null }, 25_000n * E8S)).ok;
     await f.tok.mint(buyer, 100_000n * E8S);
     await approve(f, buyer, 100_000n * E8S, f.tok);

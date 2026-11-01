@@ -24,8 +24,18 @@ module {
     };
   };
 
+  // A resale sets the new buy price in its own currency. The other currency
+  // keeps the mint reference's tier ratio (a tier equivalent, not an exchange rate).
+  public func resale(mint : Types.Reference, currency : Types.Currency, price : Nat) : Types.Reference {
+    switch currency {
+      case (#icp) ({ icp = price; token = if (mint.icp == 0) 0 else price * mint.token / mint.icp });
+      case (#token) ({ icp = if (mint.token == 0) 0 else price * mint.icp / mint.token; token = price });
+    };
+  };
+
+  // Listings may ask at most 1.5x the owner's buy price, rounded down.
   public func cap(r : Types.Reference, currency : Types.Currency) : Nat {
-    2 * (switch currency { case (#icp) r.icp; case (#token) r.token });
+    (switch currency { case (#icp) r.icp; case (#token) r.token }) * 3 / 2;
   };
 
   public func appFee(price : Nat) : Nat { price * 200 / 10_000 };

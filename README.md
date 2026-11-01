@@ -191,8 +191,10 @@ expiry or creator royalty. Cancel a listing to reprice it or send the tree.
 The owner remains the owner while listed, but both ordinary and approved
 transfers are locked until cancellation or sale delivery.
 
-- The maximum price is **2x the immutable original mint reference**, never
-  2x the previous resale. Each currency has its own frozen reference.
+- The maximum price is **1.5x the buy price**: the last marketplace sale
+  price, or the original mint reference if the bonsai has never been resold.
+  A resale sets the new reference in its own currency; the other currency
+  keeps the mint reference's tier ratio. Sending a bonsai does not change it.
 - Same-currency reference is the actual amount paid. Counterpart reference is
   `amount paid x paid-tier target anchor / paid-tier source anchor`, rounded
   down in eight-decimal units. Card purchases use the original EUR amount and

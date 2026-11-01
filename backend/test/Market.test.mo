@@ -17,8 +17,11 @@ assert Market.reference({ p with method = #paw; amountEur = 150 }, Tiers.ICP, Ti
 assert Market.reference({ p with amountE8s = null }, Tiers.ICP, Tiers.TOKEN) == null;
 assert Market.reference({ p with tier = 5 }, Tiers.ICP, Tiers.TOKEN) == null;
 assert Market.reference(p, [], []) == null;
-assert Market.cap({ icp = 123; token = 456 }, #icp) == 246;
-assert Market.cap({ icp = 123; token = 456 }, #token) == 912;
+assert Market.cap({ icp = 123; token = 456 }, #icp) == 184;
+assert Market.cap({ icp = 123; token = 456 }, #token) == 684;
+assert Market.resale({ icp = 30; token = 30_000 }, #icp, 40) == { icp = 40; token = 40_000 };
+assert Market.resale({ icp = 19; token = 19_000 }, #token, 25_000) == { icp = 25; token = 25_000 };
+assert Market.resale({ icp = 0; token = 0 }, #icp, 40) == { icp = 40; token = 0 };
 assert Market.appFee(10_001) == 200;
 assert Market.appFee(49) == 0;
 assert Market.subaccount(1) != Market.subaccount(2);

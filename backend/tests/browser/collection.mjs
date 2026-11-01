@@ -58,7 +58,7 @@ async function fixture(page, count = 4) {
             likes.set(id, set);
             return { __kind__: "ok", ok: { count: BigInt(set.size + (id === 1n ? 41 : 0)), liked } };
           },
-          marketPolicy: async () => ({feeBps: 200n, maxMultiple: 2n, token: {ledger: owner}}),
+          marketPolicy: async () => ({feeBps: 200n, maxIncreaseBps: 5000n, token: {ledger: owner}}),
           marketListings: async (ids) => ids.map(id => sale?.nftId === id ? sale : null),
           mintReferences: async (keys) => keys.map(() => ({icp: 1900000000n, token: 1900000000000n})),
           myMarketActivity: async () => sale ? [sale] : [],
@@ -376,7 +376,7 @@ test("owners list, cancel and send; buyers review exact prices and purchase from
         await modal.getByRole("tab", { name: "Trade", exact: true }).click();
         await modal.getByLabel("Asking price").fill("39");
         await modal.getByRole("button", { name: "Review listing", exact: true }).click();
-        await modal.getByRole("alert").filter({ hasText: "2x" }).waitFor();
+        await modal.getByRole("alert").filter({ hasText: "1.5x" }).waitFor();
         await modal.getByLabel("Asking price").fill("25");
         await modal.getByRole("button", { name: "Review listing", exact: true }).click();
         await modal.getByRole("button", { name: "Confirm listing", exact: true }).click();

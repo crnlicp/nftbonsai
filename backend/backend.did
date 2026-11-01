@@ -194,13 +194,14 @@ service : {
   marketPolicy: () ->
    (record {
       feeBps: nat;
-      maxMultiple: nat;
+      maxIncreaseBps: nat;
       token: opt Token;
     }) query;
   marketQuote: (id: nat) -> (variant {
                                err: text;
                                ok: Quote;
                              });
+  /// Buy-price references (last sale, else original mint) that cap listing prices at 1.5x.
   mintReferences: (keys: vec text) -> (vec opt Reference) query;
   myMarketActivity: (before: opt nat) -> (vec Listing) query;
   paymentInfo: () ->

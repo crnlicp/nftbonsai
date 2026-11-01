@@ -29,7 +29,7 @@ export function MarketControls({ nft, listing, reference, tokenEnabled, ready, o
   const [message, setMessage] = useState<string | null>(null);
   const owner = principal === nft.owner.toText();
   const active = isListed(listing);
-  const cap = reference ? 2n * reference[currency] : null;
+  const cap = reference ? reference[currency] * 3n / 2n : null;
   const label = currency === "icp" ? "ICP" : "$BONSAI";
   const showTrade = section === "all" || section === "trade";
   const showSend = section === "all" || section === "send";
@@ -120,7 +120,7 @@ export function MarketControls({ nft, listing, reference, tokenEnabled, ready, o
                       event.preventDefault();
                       void action(async () => {
                         const price = parseIcp(amount);
-                        if (!price || cap === null || price > cap) throw new Error("Enter a positive price within the 2x mint-reference cap");
+                        if (!price || cap === null || price > cap) throw new Error("Enter a positive price within the 1.5x buy-price cap");
                         if (!identity) throw new Error("Sign in first");
                         const policy = await (await backendActor(identity)).marketPolicy();
                         const ledger = currency === "icp"
@@ -143,7 +143,7 @@ export function MarketControls({ nft, listing, reference, tokenEnabled, ready, o
                           <input disabled={busy} inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setListingReview(null); }} className="mt-1 w-full rounded-lg border border-white/15 bg-black/20 p-2 text-sm text-slate-100" placeholder="0.00" />
                         </label>
                       </div>
-                      <p className="text-xs leading-relaxed text-slate-400">Maximum {formatIcp(cap ?? 0n, 8)} {label}: 2x the frozen original mint reference. Cross-currency references use tier equivalents, not exchange rates. No listing fee.</p>
+                      <p className="text-xs leading-relaxed text-slate-400">Maximum {formatIcp(cap ?? 0n, 8)} {label}: 1.5x what this bonsai was last bought for (its last sale, or the original mint). Cross-currency caps use tier equivalents, not exchange rates. No listing fee.</p>
                       <button disabled={busy} className="btn-ghost w-full">Review listing</button>
                     </form>
                   )}
