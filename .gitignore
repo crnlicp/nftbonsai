@@ -9,12 +9,12 @@
 
 # Node / Vite
 node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/src/bindings/
+canisters/frontend/app/dist/
+canisters/frontend/app/.vite/
+canisters/frontend/app/src/bindings/
 *.tsbuildinfo
-frontend/vite.config.js
-frontend/vite.config.d.ts
+canisters/frontend/app/vite.config.js
+canisters/frontend/app/vite.config.d.ts
 
 # Test output
 test-results/

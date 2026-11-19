@@ -1,0 +1,3 @@
+name: market
+recipe:
+  type: "@dfinity/motoko@v5.0.0"

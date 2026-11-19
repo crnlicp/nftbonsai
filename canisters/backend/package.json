@@ -1,0 +1,20 @@
+{
+  "name": "icpbonsai-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "mops check",
+    "build": "mops build",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "mops test Paw && mops test Tiers && mops test Market && mops test Art --mode wasi",
+    "test:integration": "mops build && (cd ../frontend/app && corepack pnpm run bindings) && node --test tests/*.test.mjs",
+    "test:art:full": "mops build art_tests && ART_SAMPLES=10000 node --test --test-name-pattern='seeded trees' tests/canisters.test.mjs",
+    "samples:landing": "mops build art_tests && node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/landing-samples.mjs"
+  },
+  "devDependencies": {
+    "@dfinity/pic": "^0.22.0",
+    "@icp-sdk/core": "^6.1.1",
+    "@icp-sdk/icp-cli": "1.7.0",
+    "ic-mops": "3.5.1"
+  }
+}

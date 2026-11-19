@@ -7,17 +7,17 @@ networks:
 environments:
   - name: local
     network: local
-    # art-lab is a local-only preview canister behind the /art-lab page.
-    canisters: [icrc7, backend, frontend, art-lab]
+    # art_lab is a local-only preview canister behind the /art-lab page.
+    canisters: [icrc7, market, app, art_lab]
     settings:
-      backend:
+      market:
         environment_variables:
           MOCK_PAYMENTS: "1"
   - name: ic
     network: ic
-    canisters: [icrc7, backend, frontend]
+    canisters: [icrc7, market, app]
     settings:
-      backend:
+      market:
         environment_variables:
           MOCK_PAYMENTS: "0"
         freezing_threshold: 2592000  # 30 days (small budget; raise once topped up)
@@ -25,7 +25,4 @@ environments:
         freezing_threshold: 2592000
 
 canisters:
-  - backend/src/icrc7
-  - backend
-  - backend/tools
-  - frontend
+  - canisters/*/*

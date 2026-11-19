@@ -47,7 +47,7 @@ The original generator selected a small trait tuple; identical silhouettes were
 possible and the browser and on-chain SVG renderers disagreed. New NFTs use a
 single frozen on-chain SVG, which the app displays directly.
 
-[Art.mo](backend/src/icrc7/lib/Art.mo) generates version-8 artwork entirely in Motoko
+[Art.mo](canisters/backend/icrc7/src/lib/Art.mo) generates version-8 artwork entirely in Motoko
 (tokens minted earlier keep their stored artwork):
 
 - Seed-derived trunks following one continuous sine centreline (gentle for
@@ -62,7 +62,7 @@ single frozen on-chain SVG, which the app displays directly.
   and cool shadow.
 - A tall shaded pot with soil and moss, a wide rounded lip with a glint and an
   under-lip shadow, a deep body with cylindrical shading and glaze streaks whose
-  bottom steps in to a foot, and a ground shadow. [growth.ts](frontend/src/lib/growth.ts) mirrors the same layout to
+  bottom steps in to a foot, and a ground shadow. [growth.ts](canisters/frontend/app/src/lib/growth.ts) mirrors the same layout to
   rebuild the scene behind the growing tree.
 - Formal upright, informal upright, gnarled, semi-cascade and unequal
   multi-trunk families. Trunk and branch segments never fold downward (only
@@ -106,7 +106,7 @@ selected tier.
 
 ICP and $BONSAI prices are fixed amounts, not conversions from EUR, so quoting
 costs no cycles or outcalls and does not move with market prices. EUR anchors
-are fixed in [Tiers.mo](backend/src/lib/Tiers.mo); the ICP and $BONSAI anchors
+are fixed in [Tiers.mo](canisters/backend/market/src/lib/Tiers.mo); the ICP and $BONSAI anchors
 are stored on-chain and a controller can retune them with `setTierPrices`
 (five strictly increasing whole-unit anchors). `pricing()` returns all three
 ladders, their ranges and the configured token. **Lucky bloom:** about 1 in 32
@@ -152,8 +152,8 @@ visible "Load more" fallback button, an `aria-live` status and an end-of-list
 message. Gallery shows "Showing N of total". Only the newly appended page's
 details are fetched; the 30-second refresh re-reads just the pages already
 loaded, so scroll position is kept. The shared logic lives in
-[useCursorList.ts](frontend/src/hooks/useCursorList.ts) and
-[LoadMore.tsx](frontend/src/components/LoadMore.tsx).
+[useCursorList.ts](canisters/frontend/app/src/hooks/useCursorList.ts) and
+[LoadMore.tsx](canisters/frontend/app/src/components/LoadMore.tsx).
 
 ### Likes
 
@@ -242,10 +242,10 @@ Marketplace release order is **upgrade the NFT canister, then backend, then
 frontend**. Use upgrades, never reinstalls, for the current enhanced-migration
 chain. The pending marketplace migrations preserve artwork, purchases,
 approvals/history and freeze historical references. Before mainnet release,
-run `npm --prefix backend test`, `npm --prefix frontend run build` and the
+run `npm test`, `npm run build` and the
 collection browser suite against a local app. The integration upgrade test
-uses old WASMs named `backend` and `icrc7` from `MARKET_BASELINE_DIR` (default
-`../.icp/cache/artifacts`, resolved from the backend working directory); it is
+uses old WASMs named `market` and `icrc7` from `MARKET_BASELINE_DIR` (default
+`../../.icp/cache/artifacts`, resolved from `canisters/backend/`); it is
 explicitly skipped when those artifacts are absent. Preserve old deployed
 artifacts before replacing deployment caches.
 
@@ -301,11 +301,11 @@ Controller operations:
 
 ```bash
 # Retune the ICP or $BONSAI ladder (five strictly increasing whole-unit anchors; card/EUR is fixed)
-npm exec -- icp canister call backend setTierPrices '(variant { icp }, vec { 9; 19; 49; 99; 249 })' -e ic
-npm exec -- icp canister call backend setTierPrices '(variant { token }, vec { 9000; 19000; 49000; 99000; 249000 })' -e ic
+npm exec -- icp canister call market setTierPrices '(variant { icp }, vec { 9; 19; 49; 99; 249 })' -e ic
+npm exec -- icp canister call market setTierPrices '(variant { token }, vec { 9000; 19000; 49000; 99000; 249000 })' -e ic
 # Withdraw collected ICP or $BONSAI (amount in e8s; the ledger fee is deducted from the backend's balance)
-npm exec -- icp canister call backend withdrawIcp '(record { owner = principal "<treasury>"; subaccount = null }, 100_000_000)' -e ic
-npm exec -- icp canister call backend withdrawToken '(record { owner = principal "<treasury>"; subaccount = null }, 100_000_000_000)' -e ic
+npm exec -- icp canister call market withdrawIcp '(record { owner = principal "<treasury>"; subaccount = null }, 100_000_000)' -e ic
+npm exec -- icp canister call market withdrawToken '(record { owner = principal "<treasury>"; subaccount = null }, 100_000_000_000)' -e ic
 ```
 
 ### $BONSAI token (built on Soon)
@@ -326,18 +326,18 @@ canister IDs (a controller-only call, rejected while token purchases are
 pending):
 
 ```bash
-npm exec -- icp canister call backend setToken '(opt record { ledger = principal "<ledger>"; market = principal "<market>"; symbol = "BONSAI" })' -e ic
+npm exec -- icp canister call market setToken '(opt record { ledger = principal "<ledger>"; market = principal "<market>"; symbol = "BONSAI" })' -e ic
 # Disable token payments again
-npm exec -- icp canister call backend setToken '(null)' -e ic
+npm exec -- icp canister call market setToken '(null)' -e ic
 ```
 
 The Mint and Wallet pages then link to the token page
 (`https://soonlaunchpad.fun/t/<market>`) for buying $BONSAI. The CSP
-(`frontend/public/_headers`) allows images from `https://*.raw.icp0.io` for
+(`canisters/frontend/app/public/_headers`) allows images from `https://*.raw.icp0.io` for
 the Soon logo (`https://<market>.raw.icp0.io/logo`).
 
-The **$BONSAI page** (`/bonsai`, `frontend/src/pages/Bonsai.tsx`) shows the
-token's market with free public queries (`frontend/src/lib/soonApi.ts`). Soon
+The **$BONSAI page** (`/bonsai`, `canisters/frontend/app/src/pages/Bonsai.tsx`) shows the
+token's market with free public queries (`canisters/frontend/app/src/lib/soonApi.ts`). Soon
 is mainnet-only, so these reads always go to `https://icp-api.io`, even on a
 local deploy. The page shows:
 
@@ -371,7 +371,7 @@ renderer. Gallery uses cursor pagination; owned tokens are retrieved through
 the image as both `icrc7:metadata:uri:image` and the wallet-conventional
 `icrc7:image`.
 
-The collection logo (the bonsai mark, [Logo.mo](backend/src/icrc7/lib/Logo.mo))
+The collection logo (the bonsai mark, [Logo.mo](canisters/backend/icrc7/src/lib/Logo.mo))
 is served on-chain at `GET /logo.svg` from the NFT canister with the same HTTP
 certification (GET 200, other methods 405). `icrc7_logo` and the
 `icrc7:logo` collection metadata return its URL,
@@ -389,7 +389,7 @@ minting are remembered per principal in `localStorage`, so this also happens
 when Paw redirects the buyer back to `/mint`. The Mint page opens on a fresh mint
 preview (or an unfinished purchase, to resume it), never on the last bonsai;
 previously minted bonsai picked from the purchase list show the static image. Growth timing and ordering live
-in [growth.ts](frontend/src/lib/growth.ts). Reduced-motion preferences show complete trees
+in [growth.ts](canisters/frontend/app/src/lib/growth.ts). Reduced-motion preferences show complete trees
 without animation or automatic regeneration. Samples are illustrations, not
 minted tokens. Regenerate the checked-in sample pool after changing the renderer:
 
@@ -411,46 +411,49 @@ provenance; use the certified image or verify the proof yourself.
 ### Repository layout
 
 ```text
-backend/
-  src/                    Payment canister sources (main.mo, types, lib, mixins, migrations)
-    icrc7/                NFT canister sources and canister.yaml
-  backend.did             Curated payment interface
-  icrc7.did               Curated NFT interface
-  canister.yaml           Payment canister recipe
-  mops.toml, mops.lock     Shared Motoko configuration and dependencies
-  package.json            Shared development tools and test commands
-  deployed/               Stable-signature baselines
-  test/, tests/, tools/    Tests and test canisters; tools/canister.yaml defines art-lab
-  scripts/                Development environment and sample-generation helpers
-frontend/
-  src/, public/           Browser application and static assets
-  canister.yaml           Static-site recipe
-  scripts/                Frontend sync helpers
-  package.json            Frontend dependencies and build commands
-icp.yaml                  Project-wide canisters, networks, and environments
+canisters/
+  backend/                Motoko group root (no canister.yaml)
+    mops.toml, mops.lock  Shared Motoko configuration, dependencies and [canisters.*]
+    package.json          Backend tooling (icp-cli, mops, PocketIC) and test commands
+    market/               Payment, mint and marketplace canister (src/market.did, migrations)
+    icrc7/                NFT collection canister (src/icrc7.did, migrations)
+    art_lab/              Local-only art preview canister
+    shared/               Motoko types used by more than one canister (PaymentTypes)
+    fixtures/             PocketIC-only canisters (art_tests, mock_ledger)
+    test/                 mops unit tests
+    tests/                PocketIC integration tests
+    scripts/              Landing sample generation
+    deployed/             Stable-signature baselines
+  frontend/               pnpm workspace root (no canister.yaml)
+    app/                  Web app canister: src/, public/, canister.yaml, vite.config.ts
+    tests/e2e/            Playwright browser regressions
+scripts/                  Cross-canister helpers (dev-env.sh)
+package.json              Root commands only; delegates into the groups
+icp.yaml                  Networks, environments, `canisters/*/*`
 .icp/data/                Persistent deployment mappings
 ```
 
-Run the shared tooling commands below from `backend/`; frontend commands use
-`npm --prefix ../frontend`. The ICP CLI discovers the project-wide `icp.yaml`
-in the parent directory. Canister recipes run in their own YAML file's directory.
-The three Motoko recipes share `backend/mops.toml` and its dependency cache.
+Run the backend tooling commands below from `canisters/backend/`; frontend
+commands run from `canisters/frontend/` with `corepack pnpm` (pnpm is pinned via
+`packageManager`). The ICP CLI discovers the project-wide `icp.yaml` in a parent
+directory. Canister recipes run in their own YAML file's directory. The three
+Motoko recipes share `canisters/backend/mops.toml` and its dependency cache.
 
 Prerequisites: Node 22+, `ic-wasm`. Use the **project-local ICP CLI and mops**
 versions, not older global installations. ICP CLI >= 0.2.4 supports mainnet
 Internet Identity delegations on the local network; this project pins CLI 1.7.0.
 
 ```bash
-cd backend
+cd canisters/backend
 npm ci
-npm --prefix ../frontend ci
+(cd ../frontend && corepack pnpm install)
 npm exec mops install
 npm exec mops toolchain use moc 1.16.1
 npm exec mops toolchain use wasmtime 50.0.0
 npm run check
 npm run build
 npm test
-npm --prefix ../frontend run build
+(cd ../frontend && corepack pnpm run build)
 ```
 
 The Motoko JSON library contains async helpers that WASI cannot compile, so the
@@ -460,8 +463,8 @@ garbage-collects. The seeded-tree stress test runs bounded PocketIC queries to a
 exhausting a single WASI invocation's memory. It checks 1,000 trees by default;
 set `ART_SAMPLES` (a multiple of 20, at least 200) or run `npm run test:art:full`
 for the 10,000-tree sweep, which takes several minutes.
-`art-tests` in the mops manifest is a **test-only** canister and is not deployed
-by [icp.yaml](icp.yaml). `art-lab` ([ArtLab.mo](backend/tools/ArtLab.mo)) is deployed
+`art_tests` in the mops manifest is a **test-only** canister and is not deployed
+by [icp.yaml](icp.yaml). `art_lab` ([art_lab/src/main.mo](canisters/backend/art_lab/src/main.mo)) is deployed
 only by the `local` environment: the frontend then shows an **Art lab** page
 (`/art-lab`) whose button renders 50 throwaway random trees from the art
 algorithm per press. Nothing is minted, and mainnet never deploys it. PocketIC exercises fresh-chain installation and populated
@@ -488,10 +491,10 @@ longer used. No network reset or canister reinstall is needed for this change.
 Browser passkey approval must also be tested with a human authenticator on the
 intended production origin.
 The frontend uses `@dfinity/static-site`, with security/CSP/cache rules in
-[_headers](frontend/public/_headers), SPA routing in
-[_redirects](frontend/public/_redirects), and real 404 responses for missing
+[_headers](canisters/frontend/app/public/_headers), SPA routing in
+[_redirects](canisters/frontend/app/public/_redirects), and real 404 responses for missing
 bundles and previews. Internet Identity can read the CORS-enabled
-[app metadata](frontend/public/.well-known/ii-app-metadata). Local image URLs resolve the NFT canister from runtime
+[app metadata](canisters/frontend/app/public/.well-known/ii-app-metadata). Local image URLs resolve the NFT canister from runtime
 configuration and preserve the current gateway port.
 
 The browser regressions use Chromium's virtual WebAuthn authenticator with
@@ -503,9 +506,9 @@ non-anonymous local test funder and, for an encrypted identity, set
 `FUND_IDENTITY_PASSWORD_FILE` to its password file path.
 
 ```bash
-npm exec -- playwright install chromium  # once, if Chromium is not installed
-npm run test:auth:local                 # requires the deployed local network
-npm run test:browser:local              # landing, post-mint growth and wallet; local mock payments
+(cd ../frontend && corepack pnpm exec playwright install chromium)  # once, if Chromium is not installed
+(cd ../frontend && corepack pnpm run test:auth:local)                 # requires the deployed local network
+(cd ../frontend && corepack pnpm run test:browser:local)              # landing, post-mint growth and wallet; local mock payments
 ```
 
 The auth regression creates a fresh hosted II account, approves consent,
@@ -514,17 +517,17 @@ and signs out/in again. A second, fresh browser context signs into that existing
 account using the same virtual passkey, checks the principal is unchanged,
 and verifies the app stays on the original route. Both the named gateway alias
 and canister-principal origin are covered. To run against an already-started Vite
-server instead, use `AUTH_TEST_ORIGIN=http://localhost:5173 npm run test:auth:local`.
+server instead, use `(cd ../frontend && AUTH_TEST_ORIGIN=http://localhost:5173 corepack pnpm run test:auth:local)`.
 It needs no physical authenticator and does not test biometric approval.
 
 If Chromium does not trust a corporate TLS proxy's CA, source
-`scripts/dev-env.sh` and set `AUTH_SYSTEM_CA=1` for the auth, mint and wallet
+`scripts/dev-env.sh` (repository root) and set `AUTH_SYSTEM_CA=1` for the auth, mint and wallet
 browser tests. This routes their HTTPS requests through Playwright's Node
 transport using the configured system CA store; TLS and IC certificate
 verification remain enabled.
 
 For a corporate TLS proxy, install its trusted CA into the system trust store,
-then optionally `source scripts/dev-env.sh`. That helper uses OpenSSL trust
+then optionally `source scripts/dev-env.sh`. That helper uses the system CA store
 without disabling certificate verification. Do not set
 `NODE_TLS_REJECT_UNAUTHORIZED=0`.
 
@@ -542,22 +545,21 @@ landing page's checked-in animated sample pool, use `npm run samples:landing`.
 ### Repository hygiene
 
 Commit source, package lockfiles, curated Candid interfaces, the migration chains,
-the stable-signature baselines in `backend/deployed/reinstall/`, and the mainnet canister
+the stable-signature baselines in `canisters/backend/deployed/reinstall/`, and the mainnet canister
 mapping in `.icp/data/mappings/ic.ids.json`. The baseline directory's name is
 historical; these signatures also protect normal, state-preserving upgrades.
-Keep the pinned ICP skills and `skills-lock.json` together.
 
 The root `.gitignore` excludes dependencies, caches, generated bindings, build
 output, browser-test reports, local environment files and private-key files.
 Do not commit wallet seeds, Paw keys or identity-password files. Runtime canister
 configuration comes from `ic_env`; legacy `VITE_*` environment files are not used.
 Before committing, run `npm run check`, `npm test` and
-`npm --prefix ../frontend run build`, then review `git status --short` and the
+`(cd ../frontend && corepack pnpm run build)`, then review `git status --short` and the
 staged diff. Do not remove applied migrations or the mainnet mapping as cleanup.
 
 ## Deployment: local and mainnet
 
-Run commands from `backend/` in Bash (start with `cd backend` from the repository
+Run commands from `canisters/backend/` in Bash (start with `cd canisters/backend` from the repository
 root). Mainnet commands spend real ICP
 and cycles; none of the commands below are run automatically by this README.
 
@@ -571,14 +573,14 @@ must not be substituted during deployment.
 ```bash
 npm install -g @icp-sdk/ic-wasm
 npm ci
-npm --prefix ../frontend ci
+(cd ../frontend && corepack pnpm install)
 npm exec -- mops install
 npm exec -- mops toolchain use moc 1.16.1
 npm exec -- mops toolchain use wasmtime 50.0.0
 npm run check
 npm run build
 npm test
-npm --prefix ../frontend run build
+(cd ../frontend && corepack pnpm run build)
 ```
 
 `npm test` checks 1,000 seeded trees. Run `npm run test:art:full` (several
@@ -600,28 +602,28 @@ npm exec -- icp network status -e local --json
 
 # First deployment installs; subsequent deployments upgrade existing canisters.
 npm exec -- icp deploy -e local
-npm exec -- icp canister status backend -e local
+npm exec -- icp canister status market -e local
 npm exec -- icp canister status icrc7 -e local
-npm exec -- icp canister status frontend -e local
-npm exec -- icp canister call backend paymentInfo '()' -e local --query
+npm exec -- icp canister status app -e local
+npm exec -- icp canister call market paymentInfo '()' -e local --query
 ```
 
 Expect `mock = true`. `configured = false` is normal for local mock mode.
-Open **http://frontend.local.localhost:8765/mint**, sign in through `https://id.ai`
+Open **http://app.local.localhost:8765/mint**, sign in through `https://id.ai`
 with your Internet Identity, and create a purchase. Mock mode automatically
 simulates payment and mints; no Paw payment link is generated.
 
 To run the browser regression:
 
 ```bash
-npm exec -- playwright install chromium
-npm run test:auth:local
+(cd ../frontend && corepack pnpm exec playwright install chromium)
+(cd ../frontend && corepack pnpm run test:auth:local)
 ```
 
 For frontend development, leave the network running and use a second terminal:
 
 ```bash
-npm --prefix ../frontend run dev
+(cd ../frontend && corepack pnpm run dev)
 # Open http://localhost:5173
 ```
 
@@ -658,13 +660,13 @@ locally only) and connect it. The market canister is an empty placeholder that
 only feeds the Soon links/logo:
 
 ```bash
-npm exec mops build mock-ledger
+npm exec mops build mock_ledger
 LEDGER=$(npm exec -- icp canister create --detached -e local -q)
 MARKET=$(npm exec -- icp canister create --detached -e local -q)
-npm exec -- icp canister install $LEDGER --wasm .mops/.build/mock-ledger.wasm -e local
-npm exec -- icp canister call backend setToken "(opt record { ledger = principal \"$LEDGER\"; market = principal \"$MARKET\"; symbol = \"BONSAI\" })" -e local
+npm exec -- icp canister install $LEDGER --wasm .mops/.build/mock_ledger.wasm -e local
+npm exec -- icp canister call market setToken "(opt record { ledger = principal \"$LEDGER\"; market = principal \"$MARKET\"; symbol = \"BONSAI\" })" -e local
 # Credit test tokens (e8s; 300_000 BONSAI here) to the principal shown on the Wallet page
-npm exec -- icp canister call $LEDGER mint '(principal "<your-principal>", 30_000_000_000_000 : nat)' -e local --candid .mops/.build/mock-ledger.did
+npm exec -- icp canister call $LEDGER mint '(principal "<your-principal>", 30_000_000_000_000 : nat)' -e local --candid .mops/.build/mock_ledger.did
 ```
 
 ### 3. Mainnet identity and funding
@@ -708,8 +710,8 @@ amounts (at least ~830B each: 500B creation fee plus ~330B that `install_code` r
 
 ```bash
 npm exec -- icp canister create icrc7 -e ic --cycles <amount> --identity bonsai-production
-npm exec -- icp canister create backend -e ic --cycles <amount> --identity bonsai-production
-npm exec -- icp canister create frontend -e ic --cycles <amount> --identity bonsai-production
+npm exec -- icp canister create market -e ic --cycles <amount> --identity bonsai-production
+npm exec -- icp canister create app -e ic --cycles <amount> --identity bonsai-production
 npm exec -- icp deploy -e ic --identity bonsai-production
 ```
 
@@ -725,16 +727,16 @@ canisters, never mock-payment canisters or a local ID mapping.
 
 ```bash
 npm exec -- icp deploy -e ic --identity bonsai-production
-npm exec -- icp canister status backend -e ic --identity bonsai-production
+npm exec -- icp canister status market -e ic --identity bonsai-production
 npm exec -- icp canister status icrc7 -e ic --identity bonsai-production
-npm exec -- icp canister status frontend -e ic --identity bonsai-production
-npm exec -- icp canister status frontend -e ic --id-only
-npm exec -- icp canister call backend paymentInfo '()' -e ic --query
+npm exec -- icp canister status app -e ic --identity bonsai-production
+npm exec -- icp canister status app -e ic --id-only
+npm exec -- icp canister call market paymentInfo '()' -e ic --query
 ```
 
 Deploying the full environment injects sibling canister IDs automatically.
 Record and version-control `.icp/data/mappings/ic.ids.json`; do not delete it.
-Open `https://<frontend-id>.icp.net` using the printed frontend ID. Mainnet
+Open `https://<app-id>.icp.net` using the printed frontend ID. Mainnet
 uses `https://id.ai` authentication. Before configuring Paw, expect
 `mock = false` and `configured = false`; purchase creation must report that
 Paw is not configured, rather than minting for free.
@@ -745,7 +747,7 @@ drops the old EUR-to-ICP rate and seeds the default ICP/$BONSAI ladders. Its
 Candid interface is intentionally breaking (`buyWithIcp` takes only the whole
 ICP amount; `setIcpRate` is gone), so `icp deploy` asks for `--yes`; deploy
 backend and frontend together. Afterwards refresh the stable baseline in
-`backend/deployed/reinstall/` and call `setToken` once $BONSAI is live.
+`canisters/backend/deployed/reinstall/` and call `setToken` once $BONSAI is live.
 
 ### 5. Configure the Paw key after deployment
 
@@ -781,11 +783,11 @@ if not key or key.startswith("sk_sandbox_"):
 with open(sys.argv[1], "w", encoding="ascii") as output:
     output.write("(" + ", ".join(map(candid_text, [key, asset, origin])) + ", false)")
 PY
-  npm exec -- icp canister call backend configurePaw \
+  npm exec -- icp canister call market configurePaw \
     --args-file "$args_file" --args-format candid \
     -e ic --identity bonsai-production
 )
-npm exec -- icp canister call backend paymentInfo '()' -e ic --query
+npm exec -- icp canister call market paymentInfo '()' -e ic --query
 ```
 
 Require `variant { ok }` from `configurePaw`; an `err` result is not success,
@@ -805,7 +807,7 @@ paid; use Paw's documented simulation flow instead.
 
 The frontend already serves `/.well-known/ic-domains` (listing `icpbonsai.app`
 and `www.icpbonsai.app`) and `/.well-known/ii-alternative-origins`. On those
-domains, sign-in uses `derivationOrigin = https://<frontend-id>.icp.net`, read
+domains, sign-in uses `derivationOrigin = https://<app-id>.icp.net`, read
 from the `ic_env` cookie, so each user keeps one principal on every URL. The
 derivation origin must never change once users exist. After deploying, in the
 registrar's DNS panel (Namecheap: Advanced DNS) remove the parking `A`/`CNAME`
@@ -814,10 +816,10 @@ records and any URL-redirect records, then add:
 | Type | Host | Value |
 |---|---|---|
 | ALIAS | `@` | `icpbonsai.app.icp1.io` |
-| TXT | `_canister-id` | `<frontend-id>` |
+| TXT | `_canister-id` | `<app-id>` |
 | CNAME | `_acme-challenge` | `_acme-challenge.icpbonsai.app.icp2.io` |
 | CNAME | `www` | `www.icpbonsai.app.icp1.io` |
-| TXT | `_canister-id.www` | `<frontend-id>` |
+| TXT | `_canister-id.www` | `<app-id>` |
 | CNAME | `_acme-challenge.www` | `_acme-challenge.www.icpbonsai.app.icp2.io` |
 
 Keep exactly one `_canister-id` TXT record per name, and do not enable any
@@ -852,7 +854,7 @@ the migration chain and compatibility before deployment, then use:
 
 ```bash
 npm exec -- icp deploy -e ic --identity bonsai-production
-npm exec -- icp canister call backend paymentInfo '()' -e ic --query
+npm exec -- icp canister call market paymentInfo '()' -e ic --query
 ```
 
 Do **not** add `--mode reinstall` on mainnet: it wipes purchases, NFT ownership,
@@ -860,10 +862,10 @@ artwork, history, and the Paw key. For frontend-only changes, preserve all
 backend state and regenerate the deployment-specific callbacks with:
 
 ```bash
-npm --prefix ../frontend run build
-npm exec -- icp sync frontend -e ic --identity bonsai-production
+(cd ../frontend && corepack pnpm run build)
+npm exec -- icp sync app -e ic --identity bonsai-production
 # For the local frontend instead:
-# npm exec -- icp sync frontend -e local
+# npm exec -- icp sync app -e local
 ```
 
 ## Paw configuration and environments
@@ -916,11 +918,9 @@ production deployment or real-money card test is part of the test suite.
 
 ## ICP skill alignment and explicit exceptions
 
-Current DFINITY skills were fetched from
-[skills.internetcomputer.org/llms.txt](https://skills.internetcomputer.org/llms.txt)
-and twelve relevant skills are pinned in [skills-lock.json](skills-lock.json).
-[AGENTS.md](AGENTS.md) offers updates at the start of future sessions rather
-than silently changing the guidance/toolchain.
+Agent guidance lives in [CLAUDE.md](CLAUDE.md), which imports the shared ICP
+rules; current DFINITY skills come from
+[skills.internetcomputer.org](https://skills.internetcomputer.org/llms.txt).
 
 Applied: project-local mops and pinned compiler/core/linter, generated Candid and
 SDK bindings, runtime environment/auth, typed public payment errors and JSON,
@@ -953,7 +953,7 @@ The authorized reset targets **local only**, not mainnet. After this fresh-chain
 release, use ordinary upgrades to preserve its data, keep enhanced
 orthogonal-persistence Wasm memory, and append migrations for state changes.
 Do not rewrite already-deployed migration files. The PocketIC tests use
-`wasm_memory_persistence = keep`; [mops.toml](backend/mops.toml) records the new deployed
+`wasm_memory_persistence = keep`; [mops.toml](canisters/backend/mops.toml) records the new deployed
 stable baselines separately from the pre-reinstall baselines. Back up and
 rehearse before any future mainnet action; never reinstall real purchases/NFTs
 without a separate, explicit decision to destroy them.

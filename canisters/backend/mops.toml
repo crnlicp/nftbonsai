@@ -1,0 +1,49 @@
+[toolchain]
+moc = "1.16.1"
+wasmtime = "50.0.0"
+lintoko = "0.12.0"
+
+[deployed]
+dir = "deployed/reinstall"
+
+[moc]
+args = [ "-W=M0223,M0236,M0237" ]
+
+[canisters.market]
+main = "market/src/main.mo"
+candid = "market/src/market.did"
+
+[canisters.market.check-stable]
+path = "deployed/reinstall/market.most"
+
+[canisters.market.migrations]
+chain = "market/src/migrations"
+check-limit = 1
+
+[canisters.icrc7]
+main = "icrc7/src/main.mo"
+candid = "icrc7/src/icrc7.did"
+
+[canisters.icrc7.check-stable]
+path = "deployed/reinstall/icrc7.most"
+
+[canisters.icrc7.migrations]
+chain = "icrc7/src/migrations"
+check-limit = 1
+
+[canisters.art_tests]
+main = "fixtures/ArtHarness.mo"
+candid = "fixtures/art-tests.did"
+
+[canisters.art_lab]
+main = "art_lab/src/main.mo"
+
+[canisters.mock_ledger]
+main = "fixtures/MockLedger.mo"
+
+[dependencies]
+core = "2.6.2"
+ic = "4.2.0"
+sha2 = "0.3.2"
+json = "1.4.0"
+ic-certification = "1.1.0"

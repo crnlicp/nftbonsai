@@ -1,0 +1,13 @@
+{
+  "name": "icpbonsai",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "cd canisters/backend && npx mops check",
+    "build": "cd canisters/backend && npx mops build && cd ../frontend && corepack pnpm run build",
+    "test": "npm --prefix canisters/backend test",
+    "dev": "cd canisters/frontend && corepack pnpm run dev",
+    "deploy:local": "canisters/backend/node_modules/.bin/icp deploy -e local --identity ${ICP_IDENTITY:-anonymous}",
+    "samples:landing": "npm --prefix canisters/backend run samples:landing"
+  }
+}

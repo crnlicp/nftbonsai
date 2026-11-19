@@ -1,0 +1,8 @@
+name: app
+recipe:
+  type: "@dfinity/static-site@v0.4.1"
+  configuration:
+    dir: dist
+    build:
+      - corepack pnpm install --frozen-lockfile
+      - corepack pnpm run build

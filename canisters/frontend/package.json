@@ -1,0 +1,17 @@
+{
+  "name": "icpbonsai-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "corepack pnpm --filter app run build",
+    "dev": "corepack pnpm --filter app run dev",
+    "test:auth:local": "node --test tests/e2e/local-auth.mjs",
+    "test:collection": "node --test --test-concurrency=1 tests/e2e/collection.mjs tests/e2e/marketplace-local.mjs",
+    "test:browser:local": "node --test --test-concurrency=1 tests/e2e/landing.mjs tests/e2e/mint.mjs tests/e2e/wallet.mjs"
+  },
+  "devDependencies": {
+    "@icp-sdk/core": "^6.1.1",
+    "playwright": "1.57.0"
+  },
+  "packageManager": "pnpm@10.20.0"
+}
